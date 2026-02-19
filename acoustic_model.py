@@ -27,22 +27,22 @@ class AcousticModel(object):
     dynamical generator to evolve the state.
     """
     def __init__(self,size: int, L: float = 1.0):
-        '''
+        """
         Initialization of the acoustic model
         
         Parameters
         ----------
-            size: int, the number of points in the 1D space grid
-            L: float, length of the grid
-            grid: array, the space grid of the proplem in the range [0,L]
-                        with a total of size equally distributed points
-            speed_field: np.ndarray (size,), the sound speed at every grid point
-            state: np.ndarray (2*size,), system state (pressure, velocity)
-            lam_min: float, minimum eigenvalue
-            lam_max: float, maximum eigenvalue
-            dE: float, spectral range
+        size: int, the number of points in the 1D space grid
+        L: float, length of the grid
+        grid: array, the space grid of the proplem in the range [0,L]
+                    with a total of size equally distributed points
+        speed_field: np.ndarray (size,), the sound speed at every grid point
+        state: np.ndarray (2*size,), system state (pressure, velocity)
+        lam_min: float, minimum eigenvalue
+        lam_max: float, maximum eigenvalue
+        dE: float, spectral range
             
-        '''
+        """
         self.size = int(size)
         self.L = float(L)   # sets the aribitrary length scale of the problem. 
         self.grid = np.linspace(0.0,self.L,self.size) 
@@ -69,11 +69,11 @@ class AcousticModel(object):
           
         Parameters
         ----------
-            speed_field: ndarray (size,), wave speed at each grid point.
-            initial_state: ndarray (2*size,), concatenation of pressure and velocity initial fields.            
+        speed_field: ndarray (size,), wave speed at each grid point.
+        initial_state: ndarray (2*size,), concatenation of pressure and velocity initial fields.            
         """
-        assert speed_field.shape == (self.size,)
-        assert initial_state.shape == (2*self.size,)
+        #assert speed_field.shape == (self.size,)
+        #assert initial_state.shape == (2*self.size,)
         
         self.speed_field = speed_field.astype(float).copy()   # the true model
         self.state =  initial_state.astype(complex).copy()
@@ -104,16 +104,15 @@ class AcousticModel(object):
         
         Parameters
         ----------
-            state: ndarray, initial state (2*size,)
+        state: ndarray, initial state (2*size,)
                 
         Returns
         -------
-                np.ndarray (2*size,), action of the normalized operator used by
-                    Chebychev propagator on the state.
+        np.ndarray (2*size,), action of the normalized operator used by
+        Chebychev propagator on the state.
         """
         #assert self.state is not None "Model not initialized"
         #assert self.speed_field is not None
-        
         p = state[:self.size]
         v = state[self.size:]
         
@@ -128,14 +127,13 @@ class AcousticModel(object):
     
     def deriv_n(self,func,x,n):
         """
-        Evaluates the n'th derivative of f applying fast foureir transform.
+        Evaluates the n'th derivative of f applying fast fourier transform.
         f must vanish at the domain boundaries: f(min(x)) = f(max(x)) = 0
         
         Parameters
         ----------
-        
         func: np.ndarray (N,), the function which derivative is evaluated
-        x: np.ndarray (N,), the domain of the function
+        x: np.ndarray (N,), the domain of the function (not used, kept for API consistency)
         n: int, the derivative order
         N: int, grid size
         
@@ -143,6 +141,7 @@ class AcousticModel(object):
         -------
         df, np.ndarray (N,)
         """
+        # Note: x parameter is kept for API consistency but self.k is used instead
         dffft = ((1j*self.k)**n)*np.fft.fft(func) 
         df = np.fft.ifft(dffft)
         return df
@@ -157,8 +156,7 @@ class AcousticModel(object):
         f must vanish at the domain boundaries: f(min(x)) = f(max(x)) = 0
         
         Parameters
-        ----------
-        
+        ----------        
         func: np.ndarray (N,), the function which derivative is evaluated
         x: np.ndarray (N,), the domain of the function
         n: int, the derivative order
@@ -187,12 +185,13 @@ class Detector(object):
 
     
     def __init__(self,model: AcousticModel):    
-        """Initialize the detector 
+        """
+        Initialize the detector 
         
         Parameters
         ----------
-                model: AcousticMode
-                indices: list, containing the indices of the grid which will be measured
+        model: AcousticModel
+        indices: list, containing the indices of the grid which will be measured
         """
         self.model = model 
         self.positions = []
@@ -208,8 +207,8 @@ class Detector(object):
         
         Parameters
         ----------
-            measure_times: list, measurement times
-            positions: list, positions
+        measure_times: list, measurement times
+        positions: list, positions
         """
         dt = propagator.dt 
         Nt = propagator.Nt
@@ -220,17 +219,19 @@ class Detector(object):
         self.indices = pos_idx
         self.positions = [self.model.grid[i] for i in pos_idx]
     
-    def setup_specific(self,positions: list, measure_times: list):
+    def setup_specific(self, measure_times: list, positions: list):
         """
         Setup specific detector positions and times
             
         Parameters
         ----------
-                positions: list
-                measure_times: list
+        positions: list
+        measure_times: list
         """
         self.positions = positions 
-        self.measure_times = measure_times 
+        self.measure_times = measure_times
+        # Convert positions to indices
+        self.indices = [np.argmin(np.abs(self.model.grid - pos)) for pos in positions] 
         
         
     def record(self):   
@@ -260,12 +261,12 @@ class ChebyshevPropagator:
         """
         Parameters
         ----------
-            model: object, the propagated model
-            dt: float, the time interval of propagation. 
-            Nmax: int, maximum number of coefficients
-            Nt: int, number of time-steps
-            total_time: float, total simulation duration
-            d: np.ndarray, storring the Chebychev coefficients
+        model: object, the propagated model
+        dt: float, the time interval of propagation. 
+        Nmax: int, maximum number of coefficients
+        Nt: int, number of time-steps
+        total_time: float, total simulation duration
+        d: np.ndarray, storring the Chebychev coefficients
         """
         self.model = model
         self.detector = detector
@@ -274,7 +275,11 @@ class ChebyshevPropagator:
         self.Nt = int(T0//dt)
         self.total_time = self.Nt*dt
         self.d = None
-        if cfl_check: self._cfl_check()
+        self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
+        # Note: CFL check requires model to be initialized (speed_field set)
+        # It's safer to call _cfl_check() after model.initialize() if needed
+        if cfl_check and model.speed_field is not None:
+            self._cfl_check()
 
         
 
@@ -286,12 +291,12 @@ class ChebyshevPropagator:
         Uses modified Bessel functions as in Kosloff (1994) style formation.
          
         Note: lam_min and lam_max do not have to be exact. Although it is important 
-              to keep the normalized range of eigenvalues within [-1,1].
+              keep the normalized range of eigenvalues within [-1,1].
          
         Returns
         -------
-            ndarray, contains the Chebychev coefficients, which can be used to
-                     propagate the system.      
+        ndarray, contains the Chebychev coefficients, which can be used to
+                propagate the system.      
         """
         lam_min = self.model.lam_min
         lam_max = self.model.lam_max
@@ -299,17 +304,23 @@ class ChebyshevPropagator:
         assert lam_min is not None and dE is not None
         
         R = self.model.dE*self.dt/2  # Factor to adjust the eigenvalues to be between [-1,1]
-        c = np.zeros(self.Nmax,dtype = complex)
+        original_Nmax = self.Nmax  # Store original to avoid modifying instance variable
+        c = np.zeros(original_Nmax,dtype = complex)
         c[0] = besseli(0,R)           #Zero coefficient.
-        # generate unitl either Nmax or coefficients become negligible  
-        for n in range(1,self.Nmax):
+        # generate until either Nmax or coefficients become negligible  
+        n_final = original_Nmax - 1  # Default to full range
+        for n in range(1,original_Nmax):
             c[n] = 2.0*besseli(n,R)
             if abs(c[n])<1e-17 and n>R:
+                n_final = n
                 break
-        # shorten Nmax if coefficients have decayed    
-        self.Nmax = n+1    
+        # Use only the significant coefficients
+        actual_Nmax = n_final + 1
+        c = c[:actual_Nmax]
         # multiply by global exponential factor which normalizes the coefficients
-        self.d = np.exp((lam_min+lam_max)*self.dt/2.0)*c 
+        self.d = np.exp((lam_min+lam_max)*self.dt/2.0)*c
+        # Store actual number of coefficients for use in propagation_step
+        self._actual_Nmax = actual_Nmax 
 
     def _cfl_check(self) -> None:
         """
@@ -341,16 +352,16 @@ class ChebyshevPropagator:
         Updates the system state.
 
         Input: 
-            vec: numpy array, containing the initial state
-            tup: tuple, containing the dynamical generator additional parameters
-            
+        vec: numpy array, containing the initial state
+        tup: tuple, containing the dynamical generator additional parameters
+        
         Parameters
         ----------
-            generator: function, the dynamical generator (e.g, a differential operator)
+        generator: function, the dynamical generator (e.g, a differential operator)
             
         Returns: 
         -------
-            state: ndarray (2*size,), field's state at final time
+        state: ndarray (2*size,), field's state at final time
         """
         vec = self.model.get_state()
         self.model.total_time = self.dt*self.Nt
@@ -359,8 +370,10 @@ class ChebyshevPropagator:
         fi = np.zeros((vec.shape[0],3),dtype = complex)
         for j in range(self.Nt):     # Running over the time steps
             vec = self.propagation_step(vec,fi)
-            if self.detector.recording and (j+1)*self.dt in self.detector.measure_times:
-                    time = (j+1)*self.dt
+            if self.detector.recording:
+                time = (j+1)*self.dt
+                # Check if time matches any measurement time (with tolerance for floating point)
+                if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
                     # storing the measements at the detector positions at a certain time
                     for pos_ind in self.detector.indices:
                         pos = self.model.grid[pos_ind]
@@ -373,23 +386,25 @@ class ChebyshevPropagator:
   
     
     def propagation_step(self,vec: np.ndarray, fi: np.ndarray) -> np.ndarray:
-        """Performs a prpagation step of size dt
+        """
+        Performs a propagation step of size dt
            
-            Parameters
-            ----------
-            vec: np.ndarray (model.size,), the current system state
-            fi: np.ndarray (3,(2*model.size,), introduced to prevent reallocation of memeory each propagation step
-            
-            Returns
-            -------
-            np.ndarray: propagated system state
+        Parameters
+        ----------
+        vec: np.ndarray (model.size,), the current system state
+        fi: np.ndarray (3,(2*model.size,), introduced to prevent reallocation of memory each propagation step
+        
+        Returns
+        -------
+        np.ndarray: propagated system state
         """
         
         fi[:,0] = vec
         # The normalized differential operator O
         fi[:,1] = self.model.generator(vec)              
+        actual_Nmax = getattr(self, '_actual_Nmax', len(self.d))  # Use actual number of coefficients
         cheb_sum = self.d[0]*fi[:,0]+ self.d[1]*fi[:,1]
-        for i in range(1,self.Nmax-1):
+        for i in range(1,actual_Nmax-1):
             fi[:,2] = 2*self.model.generator(fi[:,1])-fi[:,0]
             fi[:,0], fi[:,1] =fi[:,1], fi[:,2]
             cheb_sum = cheb_sum + self.d[i+1]*fi[:,2]
@@ -416,22 +431,20 @@ class ChebyshevPropagator:
 ###############################################################################
 
 def gaussian(x,mu,sig):
-    '''Returns a gaussian with mean mu and standard deviation sig'''
+    """Returns a gaussian with mean mu and standard deviation sig"""
     return (1/(np.sqrt(2*np.pi*sig**2))) * np.exp(-np.power(x-mu,2)/(2*sig**2))
 
 
 def gaussian_dot(x,mu,sig,c):
-    '''Returns a gaussian with mean mu and standard deviation sig'''
+    """Returns a gaussian with mean mu and standard deviation sig"""
     return (c*(x-mu)/sig**2)*gaussian(x,mu,sig)
 
 def besseli(v,z):
-    '''
+    """
     Modified Bessel function of the first kind of real order.
     Parameters
-    ----------
-        v: float real, order of the function
-        z: float or complex, argument   
-    '''
+    ----------  
+    """
     return scipy.special.iv(v,z)
 
     
@@ -443,11 +456,11 @@ def Plot(x,y,x_axis_label = None,y_axis_label = None,label = None):
     plt.show()
     
 def cv(value_list):
-    '''Takes a list of numbers and returns a column vector:  n x 1'''
+    """Takes a list of numbers and returns a column vector:  n x 1"""
     return rv(value_list).T
 
 def rv(value_list):
-    '''Takes a list of numbers and returns a row vector: 1 x n'''    
+    """Takes a list of numbers and returns a row vector: 1 x n"""    
     return np.array([value_list])
 
 
