@@ -61,7 +61,11 @@ def deriv_n_gen(func,x,n):
     """
     y1 = func[0]
     y2 = func[-1]
-    slope = (y2-y1)/(x[-1]-x[0])
+    delta_x = x[-1]-x[0]
+    if abs(delta_x) < 1e-13:
+        slope = 0
+    else:
+        slope = (y2-y1)/delta_x
     linear_correction = slope if n == 1 else 0
     lin_func = slope*(x-x[0])+y1
     func2 = func - lin_func

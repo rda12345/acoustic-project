@@ -1,5 +1,7 @@
 Acoustic Project
 
+TODO: rewrite the file
+
 The repository solves the inverse problem of the acoustic equation. 
 COMPLETE
 

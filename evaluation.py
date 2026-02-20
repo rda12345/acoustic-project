@@ -2,9 +2,10 @@
 Evaluation of the acoustic model.
 Runs a single experiment and plots the initial and final states.
 """
-from acoustic_model import AcousticModel, Detector
-from chebychev_propator import ChebyshevPropagator
-from utiliity_functions import Plot
+from simulation.acoustic_model import AcousticModel
+from simulation.detector import Detector
+from simulation.chebyshev_propator import ChebyshevPropagator
+from utilities.utility_functions import Plot
 
 if __name__ == '__main__':
     
@@ -12,7 +13,7 @@ if __name__ == '__main__':
     size = 2**8
     L = 1.0  # sets the length scale of the problem
     dt = 0.1
-    T0 = 10 
+    T0 = 20
     
     # create model 
     model = AcousticModel(size = size,L = L)
@@ -47,7 +48,6 @@ if __name__ == '__main__':
     detector.setup_default(propagator)
     observed_data = detector.get_data(propagator)
     
-    print(observed_data)
      
     ## Plotting the dynamics
     initial_pressure = initial_state[:size]
