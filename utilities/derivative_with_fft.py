@@ -62,10 +62,12 @@ def deriv_n_gen(func,x,n):
     y1 = func[0]
     y2 = func[-1]
     slope = (y2-y1)/(x[-1]-x[0])
+    linear_correction = slope if n == 1 else 0
     lin_func = slope*(x-x[0])+y1
     func2 = func - lin_func
-    df2 = deriv_n(func2,x,n)
-    df = df2 +slope*np.ones(len(x));
+    dfn = deriv_n(func2,x,n)
+    df = dfn + linear_correction * np.ones(len(x))
     return df
+
 
 
