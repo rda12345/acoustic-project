@@ -25,7 +25,10 @@ General Pseudo code for my use:
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-from acoustic_model import *
+from simulation.acoustic_model import AcousticModel
+from simulation.chebyshev_propator import ChebyshevPropagator
+from simulation.detector import Detector
+from utilities.utility_functions import cv
 
 
 
@@ -33,10 +36,11 @@ from acoustic_model import *
    
 class OptModel(AcousticModel):
     
-    def __init__(self,size: int, L: float = 1.0, observed_data = None, initial_state: np.ndarray = None):
+    def __init__(self,size: int, L: float = 1.0, observed_data = None, initial_state: np.ndarray = None, T0: float = 1.0):
         super().__init__(size, L)
         self.observed_data = observed_data
         self.initial_state = initial_state
+        self.T0 = T0
         self.points = observed_data.keys()
         self.propagator = None
         self.detector = None
@@ -66,15 +70,15 @@ class OptModel(AcousticModel):
         
         # TODO
         i = 0
-        optModel.run()
-        error = optModel.evaluate()
-        while error > error_thresh and i <= max_inter:
+        self.run()
+        error = self.evaluate()
+        while error > error_thresh and i <= max_iter:
             i += 1
             #t1 = time.time()
             self.update_speed_field(eta)
             #t2 = time.time()
             #time_interval = t2 - t1
-            error = model.evaluate()
+            error = self.evaluate()
         
             
     
@@ -83,7 +87,7 @@ class OptModel(AcousticModel):
         # COMPLETE CODE
         
         # Set up the gradiant arrays
-        Delta_speed_field = selff.grad(x,y)
+        Delta_speed_field = self.grad()
         self.speed_field = self.speed_field - eta*Delta_speed_field
         #self.speed_field = [w - (eta/m)*Delta_w
          #               for w, Delta_w in zip(self.speed_field,dw)]
@@ -142,7 +146,7 @@ class OptModel(AcousticModel):
         """
         self.initialize(self.opt_speed_field,self.initial_state)
         self.detector = Detector(self)
-        self.propagator = ChebyshevPropagator(self,self.detector,T0 = T0) 
+        self.propagator = ChebyshevPropagator(self,self.detector,T0 = self.T0)
         self.detector.setup_default(self.propagator)
         self.opt_data = self.detector.get_data(self.propagator)
     
@@ -205,7 +209,7 @@ if __name__ == '__main__':
 
 
     ## Setup optimization model
-    optModel = OptModel(size, L, observed_data,initial_state)
+    optModel = OptModel(size, L, observed_data, initial_state, T0=T0)
     # Run a single theoretical experiment and evaluate the results
     optModel.run()
     error = optModel.evaluate()

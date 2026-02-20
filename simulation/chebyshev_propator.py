@@ -39,7 +39,7 @@ class ChebyshevPropagator:
         if cfl_check and model.speed_field is not None:
             self._cfl_check()
         if T0 < dt:
-            raise('Total run time should be more than the inteval time dt')
+            raise ValueError('Total run time should be more than the interval time dt')
 
         
 
