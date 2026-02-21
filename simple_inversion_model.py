@@ -102,7 +102,9 @@ Tasks:
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
-from acoustic_model import *
+from simulation.acoustic_model import AcousticModel
+from simulation.chebyshev_propagator import ChebyshevPropagator
+from simulation.detector import Detector
 
 
 
@@ -160,7 +162,7 @@ class OptModel(AcousticModel):
         # COMPLETE CODE
         
         # Set up the gradiant arrays
-        Delta_speed_field = selff.grad(x,y)
+        Delta_speed_field = self.grad(x,y)
         self.speed_field = self.speed_field - eta*Delta_speed_field
         #self.speed_field = [w - (eta/m)*Delta_w
          #               for w, Delta_w in zip(self.speed_field,dw)]

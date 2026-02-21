@@ -4,7 +4,7 @@ Runs a single experiment and plots the initial and final states.
 """
 from simulation.acoustic_model import AcousticModel
 from simulation.detector import Detector
-from simulation.chebyshev_propator import ChebyshevPropagator
+from simulation.chebyshev_propagator import ChebyshevPropagator
 from utilities.utility_functions import Plot
 
 if __name__ == '__main__':
