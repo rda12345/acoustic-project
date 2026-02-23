@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 The file contains two functions which evaluate the derivative of a 1D function.
 They differ by the conditions on the boundaries.

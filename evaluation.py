@@ -27,14 +27,11 @@ if __name__ == '__main__':
     # initial state
     sig = model.L/20
     amp = 1.0
-    
-    #initial_pressure = amp*(gaussian(model.grid, 0, sig) + gaussian(model.grid, model.L, sig))
-    #initial_velocity = np.zeros(model.grid.shape)
-    #initial_state = np.concatenate((initial_pressure,initial_velocity))
+    # creating the speed field and initial state
     speed_field, initial_state = model.default_initial_state(amp,sig,base_speed,amp_speed)
     
 
-    # Initialization of an initial gaussian pressure distribution and no source
+    # initialization of an initial gaussian pressure distribution and no source
     model.initialize(speed_field,initial_state)
     
     # initialize detector
@@ -54,6 +51,6 @@ if __name__ == '__main__':
     final_state = model.get_state()
     final_pressure = final_state[:size]
     final_velocity = final_state[size:]
-    
+    print(f'observed_data = {observed_data}')
     Plot(model.grid,initial_pressure,x_axis_label = 'position',y_axis_label = 'pressure',label = 'initial state')
     Plot(model.grid,final_pressure,x_axis_label = 'position',y_axis_label = 'pressure',label = 'final state')

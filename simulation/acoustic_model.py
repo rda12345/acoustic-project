@@ -1,22 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Isotropic acoustic wave equation, based on the analytics in wave_eq_solver.lyx 
 The isotropic acoustic wave equation is expressed in terms of two first order
 coupled partial differential equations and solved utilizing a Chebychev expansion
-of the dynamical propagator.
-
-
-Code review suggestions: 
-
-    1. Consider @dataclass for small classes like Detector if it simplifies code.
-    2. Add __repr__ for AcousticModel for easier debugging.
-    3. Replace generator to an allocation-free generator_apply(state, out).
-    4. Use pyfftw for fft caching plan
- 
+of the dynamical propagator. 
 """
-# TODO fix the code review suggestions
-
 import numpy as np
 from utilities.utility_functions import gaussian
 

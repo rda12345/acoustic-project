@@ -135,10 +135,10 @@ class ChebyshevPropagator:
                 # Check if time matches any measurement time (with tolerance for floating point)
                 if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
                     # storing the measements at the detector positions at a certain time
-                    for pos_ind in self.detector.indices:
-                        pos = self.model.grid[pos_ind]
+                    for pos_idx in self.detector.indices:
+                        pos = self.model.grid[pos_idx]
                         pressure = vec[:self.model.size]
-                        self.detector.observed_data[time,pos] = float(pressure[pos_ind])
+                        self.detector.observed_data[time,pos] = float(pressure[pos_idx])
         # updating the system state
         self.model.set_state(vec) 
         return vec

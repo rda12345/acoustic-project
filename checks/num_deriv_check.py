@@ -3,11 +3,12 @@
 """
 Checking the performance of deriv_n_gen
 """
-import numpy as np
-from scipy.integrate import solve_ivp
-import matplotlib.pyplot as plt
-from derivative_with_fft import deriv_n_gen
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import numpy as np
+import matplotlib.pyplot as plt
+from utilities.derivative_with_fft import deriv_n_gen
 
 def gaussian(x,mu,sig):
     '''Returns a gaussian with mean mu and standard deviation sig'''
