@@ -15,7 +15,15 @@ class ChebyshevPropagator:
     by repeatedly applying the generator in the three-term recurrence.
     """
 
-    def __init__(self,model: AcousticModel, detector: Detector, dt: float = 0.1, Nmax: int = 1000,T0: float = 10, cfl_check = False):
+    def __init__(
+            self, 
+            model: AcousticModel, 
+            detector: Detector = None, 
+            dt: float = 0.1, 
+            Nmax: int = 1000, 
+            T0: float = 10, 
+            cfl_check = False
+            ):
         """
         Parameters
         ----------
@@ -86,7 +94,7 @@ class ChebyshevPropagator:
         """
         Performs a conservative CFL-like check and warn/raise if dt is large.
 
-        This is heuristic: the scheme is spectral + Chebyshev and stability depends on
+        This is a heuristic: the scheme is spectral + Chebyshev and stability depends on
         spectral range; we check a common explicit-scheme guideline dx/c_max.
         Explaination: one would like to have omega*dt < 1, therefore, since 
         omega_max = c_max * k_max = c_max * dx /pi, we get dt_limit = dx / (cmax * pi)
@@ -105,6 +113,9 @@ class ChebyshevPropagator:
             
     def get_Nt(self):
         return self.Nt
+    
+    def get_dt(self):
+        return self.dt
         
     def propagate(self):
         """
@@ -124,13 +135,11 @@ class ChebyshevPropagator:
         state: ndarray (2*size,), field's state at final time
         """
         vec = self.model.get_state()
-        self.model.total_time = self.dt*self.Nt
         self.compute_cheby_coefficients()
-        #x,max_x,min_x,lx,mass,k,lam_min,lam_max,dk = tup
         fi = np.zeros((vec.shape[0],3),dtype = complex)
         for j in range(self.Nt):     # Running over the time steps
             vec = self.propagation_step(vec,fi)
-            if self.detector.recording:
+            if self.detector and self.detector.recording:
                 time = (j+1)*self.dt
                 # Check if time matches any measurement time (with tolerance for floating point)
                 if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
@@ -145,7 +154,7 @@ class ChebyshevPropagator:
     
   
     
-    def propagation_step(self,vec: np.ndarray, fi: np.ndarray) -> np.ndarray:
+    def propagation_step(self, vec: np.ndarray, fi: np.ndarray) -> np.ndarray:
         """
         Performs a propagation step of size dt
            
@@ -172,3 +181,55 @@ class ChebyshevPropagator:
 
 
 
+    def propagate_with_sources(
+            self,
+            source: callable
+            ) -> np.ndarray:
+        """
+        Evaluates exp(O*t)*vec, with t=Nt*dt, utilizing a Chebychev expansion of the dynamical propagator.
+        Evaluates the integral of the source term using Simpson's rule, while propagating the system state.
+        Updates the system state.
+        
+        Parameters
+        ----------
+        source: callable, the source function
+            
+        Returns: 
+        -------
+        np.ndarray (2*size,), field's state at final time
+        """
+        vec = self.model.get_state()
+        self.compute_cheby_coefficients()
+        fi = np.zeros((vec.shape[0],3),dtype = complex)
+        for j in range(self.Nt):     # running over the time steps
+            vec = self.propagation_step(vec, fi)
+        source_term = self.integrate_source_term(source) 
+        return vec + source_term
+        
+    def integrate_source_term(
+            self,
+            source: np.ndarray
+            ) -> np.ndarray:
+        """
+        Integrates the source term over time using Simpson's rule, while propagating the system state.
+        """
+        dimension = source(0).shape[0]
+        fi = np.zeros((dimension,3),dtype = complex) 
+        if self.Nt%2 != 0:
+            raise ValueError("integrate_source_term: Nt must be even for Simpson's rule.")
+        
+        s = np.zeros(dimension, dtype=complex)
+        t = self.Nt*self.dt
+        for Ntau in range(self.Nt+1):
+            tau = Ntau*self.dt
+            vec = source(t-tau)
+            for _ in range(Ntau):     # Running over the time steps
+                vec = self.propagation_step(vec, fi) 
+            if Ntau == 0 or Ntau == self.Nt:
+                s += vec
+            elif Ntau % 2 == 1:
+                s += 4*vec
+            else:
+                s += 2*vec
+        s *= self.dt/3
+        return s

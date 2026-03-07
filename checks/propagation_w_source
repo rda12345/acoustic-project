@@ -1,0 +1,103 @@
+"""
+Tests the solution in chebychev_propagator_w_source
+"""
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+import numpy as np
+from utilities.chebychev_propagator_w_source import *
+from simulation.acoustic_model import AcousticModel
+from simulation.chebyshev_propagator import ChebyshevPropagator
+
+
+if __name__ == "__main__":
+    from scipy.linalg import expm
+    print('-------------- TESTS --------------')
+    
+    # Dynamical parameters
+    T0 = 1.0
+    Nt = 2**8
+    dt = T0/Nt
+
+
+    
+    ## Test 1
+    generator = lambda x: -x  # Example generator (e.g., a simple decay)
+    
+    a = 2.0
+    # Source term
+    def source(t, a = a):
+        #return np.exp(-((t-0.5))/(2*0.01**2))
+        return np.array([a])
+
+    # Generator parameters
+    lam_min = -1.0
+    lam_max = 1.0
+    Nmax = 50
+    info = (lam_min, lam_max, dt, Nmax)   
+
+    initial_state = np.array([1.0])  # Example initial state
+    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
+    analytic_result = (initial_state - a) * np.exp(-T0) + a  # Analytical solution for the example generator and source
+    print(f'Scalar function error: {np.linalg.norm(analytic_result - result[0])}')
+
+    ## Test 2: Rabi Oscillations with a field
+    
+    # Generator parameters
+    omega = 0.1
+    epsilon = 0.3
+    sigma_x = np.array([[0, 1],[1, 0]])
+    sigma_z = np.array([[1, 0],[0, -1]])
+    H = omega * sigma_z + epsilon * sigma_x
+
+    Omega = np.sqrt(omega**2 + epsilon**2)
+    generator = lambda vec:  - 1j * H @ vec/Omega
+    lam_min, lam_max = - Omega, Omega 
+    Nmax = 50
+    info = (lam_min, lam_max, dt, Nmax)
+
+    def source(t: float, a: float = 0):
+        return np.array([0, a])
+       
+    initial_state = np.array([1.0, 0.0])  # Example initial state
+    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
+    analytic_result = expm(-1j * H * T0) @ initial_state    
+
+    print(f'Vector propagation error: {np.linalg.norm(analytic_result - result)}')
+    
+
+    ## Test 3: Acoustic wave equation with a source term
+    size = 2**8
+    L = 1.0  # sets the length scale of the problem
+    dt = 0.1
+    T0 = 20
+
+    model = AcousticModel(size = size,L = L)
+    base_speed = 0.01
+    amp_speed = 0.6
+    
+    sig = model.L/20
+    amp = 1.0
+    model = AcousticModel(size = 2**8, L = 1.0)
+    speed_field, initial_state = model.default_initial_state(amp, sig, base_speed, amp_speed)
+    model.initialize(speed_field, initial_state)
+    propagator = ChebyshevPropagator(model=model, T0=T0)
+    propagator.propagate()
+    
+     
+    initial_pressure = initial_state[:size]
+    final_state = model.get_state()
+    #final_pressure = final_state[:size]
+    #final_velocity = final_state[size:]
+
+    Nt = 200
+    dt = T0/(Nt+1)
+    model_2 = AcousticModel(size = size, L = L)
+    model_2.initialize(speed_field, initial_state)
+    propagator_2 = ChebyshevPropagator(model=model_2, dt=dt, T0=T0)
+    propagator_2.propagate_with_sources(source = lambda t: np.zeros(2*size))  # Propagate with zero source term, should give the same result as propagate
+
+    final_state_2 = model_2.get_state()
+    print(f'Test 3 - propagate_with_sources state error: {np.linalg.norm(final_state - final_state_2)}  ')
+
+    
