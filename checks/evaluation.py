@@ -9,8 +9,9 @@ import numpy as np
 from simulation.acoustic_model import AcousticModel
 from simulation.detector import Detector
 from simulation.chebyshev_propagator import ChebyshevPropagator
-from utilities.utility_functions import Plot
+from utilities.utility_functions import Plot, gaussian
 from simulation.forward_solver import ForwardSolver
+
 
 
 if __name__ == '__main__':
@@ -26,20 +27,19 @@ if __name__ == '__main__':
     
     # speed field with a Gaussian initial state
     base_speed = 0.01
-    amp_speed = 0.6
+    amp_speed = 0.05
     #  cycle_time = model.L/base_speed     # the time it takes the wave packet to
                                         # complete a complete circle around the grid
     
     # initial state
-    sig = model.L/20
+    sig = model.L/25
     amp = 1.0
+    
     # creating the speed field and initial state
     speed_field, initial_state = model.default_initial_state(amp, sig, base_speed, amp_speed)
-    
 
     # initialization of an initial gaussian pressure distribution and no source
     model.initialize(speed_field, initial_state)
-    
     # initialize detector
     detector = Detector(model)
     
@@ -60,9 +60,9 @@ if __name__ == '__main__':
     final_state = model.get_state()
     final_pressure = final_state[:size]
     final_velocity = final_state[size:]
-    Plot(model.grid,initial_pressure,x_axis_label = 'position',y_axis_label = 'pressure',label = 'initial state')
-    Plot(model.grid,final_pressure,x_axis_label = 'position',y_axis_label = 'pressure',label = 'final state')
-
+    #Plot(model.grid, initial_pressure,  x_axis_label = 'position',y_axis_label = 'pressure',label = 'initial state')
+    Plot(model.grid, final_pressure.real, x_axis_label = 'position',y_axis_label = 'pressure',label = 'final state')
+    
     ## Testing the forward solver agains the propagator
     forward_solver = ForwardSolver(model, T0=T0)
     forward_solver.run(speed_field, initial_state)
@@ -70,3 +70,6 @@ if __name__ == '__main__':
     final_state_2 = forward_solver.get_state()
 
     assert np.allclose(final_state, final_state_2), "The final states from the propagator and forward solver do not match!"
+    
+
+    

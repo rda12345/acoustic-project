@@ -5,61 +5,39 @@
 
 This project solves the **1D acoustic inverse problem** (full waveform inversion). The goal is to recover an unknown wave speed field from pressure measurements at a few detector positions. The forward problem (wave propagation) uses a Chebyshev expansion of the dynamical propagator, which is spectrally accurate and efficient.
 
+
 ## Running the Code
 
-```bash
-# Run a forward simulation (evaluate the acoustic model, plot initial and final pressure)
-python evaluation.py
-
-# Run the inversion model (sets up real model + optimization model, prints error)
-python simple_inversion_model.py
-
-# Run individual check scripts from the tests/ directory
-python tests/num_deriv_check.py
-python tests/numerical_integrators_check.py
-python tests/solve_ivp_check.py
-```
+#TODO
 
 ## Architecture
+
+An `InverseEngine` instance accepts model parameters, defining the physics of the problem, and observed measurements, obtained from a "real" experiment. The engine aims to optimize the speed field so the predicted measurements, obtained from its model, coincide with the observed measurements.
+
+The `InverseEngine` class has two main components:
+1. Forward propagation - the `ForwardSolver` is given a model, defining the physics of the problem, a total running time, an initial system state (pressure field + rate of change of the pressure field), and the current prediction for the speed field. It propagates the model and produces a dictionary of `predicted measurements.
+2. The model (identical one to the forward solver), current speed field, and predicted measurements are then fed into the `AdjointSolver`. The solver employs the **Adjoint method** to evaluate the gradiant of the L2 cost function with respect to the speed field and outputs it.
+
+The engine updates the speed field via **gradient descent** and feeds it back to the forward solver iteratively, until convergence. 
 
 ### Forward Problem (wave propagation)
 
 The system solves the 1D acoustic wave equation expressed as two coupled first-order PDEs:
-- State vector: `[pressure (size,), velocity (size,)]` → concatenated as `(2*size,)`
+- The `ForwardSolver` has three components, it begins by building an `AcousticModel` instance, propagates it with the `ChebyshevPropagator`, and records the measurements at specified time utilizing a `Detector` instance.
+- The system state is given by the state vector: `[pressure (size,), velocity (size,)]` → concatenated as `(2*size,)`
 - Spatial derivatives computed via FFT with a linear-correction trick (`deriv_n_gen`) to handle non-zero boundary conditions
 - Time propagation via **Chebyshev expansion** of the operator `exp(O*dt)`, where coefficients are modified Bessel functions `besseli(n, R)` (Kosloff 1994 style). Coefficients are precomputed once per propagation run and truncated when they fall below `1e-17`.
-
-### Class Hierarchy
-
-```
-simulation/
-  AcousticModel          — grid, speed field, state, FFT derivatives, generator O
-  ChebyshevPropagator    — precomputes Chebyshev coefficients, time-steps via three-term recurrence
-  Detector               — records pressure at specified (time, position) pairs during propagation
-
-utilities/
-  derivative_with_fft    — standalone FFT derivative functions (deriv_n, deriv_n_gen)
-  utility_functions      — gaussian, besseli, Plot, cv/rv helpers
-  simple_wave_eq_solver  — finite-difference wave solver (older/reference)
-  simple_wave_eq_solver_fft — FFT-based wave solver (older/reference)
-```
-
-### Inverse Problem (`simple_inversion_model.py`)
-
-`OptModel` subclasses `AcousticModel` and adds:
-- `run()` — propagates with current `opt_speed_field`, records detector data
-- `evaluate()` — L2 cost function between predicted and observed data
-- `GD()` / `grad()` — gradient descent via adjoint state method (**incomplete**, marked TODO)
-
-The inversion workflow:
-1. Run real model → get `observed_data` (dict keyed by `(time, position)`)
-2. Initialize `OptModel` with a flat speed guess
-3. Iteratively: `run()` → `evaluate()` → `grad()` → `update_speed_field()`
+- **Source term**: the additional convolution integral `∫₀ᵀ exp(O(T−τ)) s(τ) dτ` is computed using the Chebyshev propagator and **Simpson's rule** with `Nt+1` quadrature points (requires `Nt` even).
 
 
-The `simulation/__init__` file is misspelled as `__initi__.py` (missing `t`) — the package still works because Python finds modules by directory, but the init file is not loaded.
+### Inverse Problem 
+
 
 ## Dependencies
 
 `numpy`, `scipy`, `matplotlib`.
+
+## Comments
+
+- Due to scattering, and the zero base pressure, the pressure may obtain negative values, this not unphysical.
 

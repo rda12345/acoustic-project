@@ -204,7 +204,9 @@ class ChebyshevPropagator:
         for j in range(self.Nt):     # running over the time steps
             vec = self.propagation_step(vec, fi)
         source_term = self.integrate_source_term(source) 
-        return vec + source_term
+        vec += source_term
+        self.model.set_state(vec) 
+        return vec
         
     def integrate_source_term(
             self,

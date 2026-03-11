@@ -6,16 +6,16 @@ import matplotlib.pyplot as plt
 import scipy
 
 
-def gaussian(x,mu,sig):
+def gaussian(x, mu, sig):
     """Returns a gaussian with mean mu and standard deviation sig"""
     return (1/(np.sqrt(2*np.pi*sig**2))) * np.exp(-np.power(x-mu,2)/(2*sig**2))
 
 
-def gaussian_dot(x,mu,sig,c):
+def gaussian_dot(x, mu, sig, c):
     """Returns a gaussian with mean mu and standard deviation sig"""
     return (c*(x-mu)/sig**2)*gaussian(x,mu,sig)
 
-def besseli(v,z):
+def besseli(v, z):
     """
     Modified Bessel function of the first kind of real order.
     Parameters

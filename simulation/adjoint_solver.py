@@ -79,7 +79,7 @@ class AdjointSolver:
         p = state[:self.size]
         return -2 * (1/self.speed_field) * self.deriv_n(p, self.grid, 2)  # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
 
-    def grad_m(self) -> np.ndarray:
+    def get_gradient(self) -> np.ndarray:
         """
         Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
         
@@ -97,30 +97,5 @@ class AdjointSolver:
         return self.dH_dm().T @ u_dagger  # since dH_dm is a vector representing the diagonal elements of a matrix, its adjoint is simply its transpose. If dH_dm were a full matrix, we would need to take its conjugate transpose.
 
 
-    def get_residual_function(self, predicted_measurements: dict, observed_data: dict) -> np.ndarray:
-        """
-        Evaluates the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
-        
-        Parameters
-        ----------
-        predicted_measurements: dict, a dictionary mapping tuples (time, position) to the predicted pressure field at that time and position, which is obtained from the measurement operator K applied to the state of the acoustic model.
-        observed_data: dict, a dictionary mapping tuples (time, position) to the pressure field at that time and position, which is obtained from the detector.
-        
-        Return
-        ------
-        np.ndarray (p,), the residual function, which is a vector representing the difference between the observed data and the predicted measurements at the defined space-time points.
-        """
-        r_func = np.array([observed_data[tp] - predicted_measurements[tp] for tp in observed_data.keys()])  
-        return r_func
 
-    def update_speed_field(self, eta: float):
-        """
-        Updates the speed field using a gradient descent step, with a learning rate of eta.
-        
-        Parameters
-        ----------
-        eta: float, the learning rate for the gradient descent step.
-        """
-
-    # Evaluate the gradient grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
-        
+    

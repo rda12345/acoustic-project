@@ -1,6 +1,11 @@
 The file contains a TODO list for the project.
 
+Analytical TODOs:
+3. Calculate an analytical solution with and test the adjoint solvers against it.
+
+
 Large TODOs:
+0. Change propagate_with_source so it accepts a numpy array of source values at each time step, and modify the Chebyshev propagator to use it.
 1. Implement the adjoint solver.
 2. Test the adjoint solver against an analytical example.
 3. Do the analytics to check the result is the same.
@@ -13,7 +18,4 @@ Large TODOs:
 
 
 Small TODOs:
-- Claculate the analytical solution and test propagation_w_source against it.
-- Calculate an analytical solution with and test the forward and adjoint solvers against it.
-- In the Chebyshev propagator, modify the time steps and dt in integrate_source_term to improve accuracy.
 - In the inverse engine, compute the residual and implement the gradient descent step.

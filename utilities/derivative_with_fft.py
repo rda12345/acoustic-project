@@ -8,7 +8,7 @@ deriv_n_gen: works for general boundary conditions.
 import numpy as np
 import math
 
-def deriv_n(func,x,n):
+def deriv_n(func, x, n):
     """
     Evaluates the n'th derivative of f applying fast foureir transform.
     f must vanish at the domain boundaries: f(min(x)) = f(max(x)) = 0
@@ -37,7 +37,7 @@ def deriv_n(func,x,n):
     return df
 
 
-def deriv_n_gen(func,x,n):
+def deriv_n_gen(func, x,n):
     """
     Evaluates the n'th derivative of f applying fast foureir transform.
     The function generalizes deriv_n function by substracting a linear function

@@ -44,14 +44,29 @@ class InverseEngine:
         for _ in range(self.max_iters):
             self.forward_solver.propagate()  # propagate the initial state to get the predicted measurements
             predicted_measurements = self.forward_solver.get_predicted_measurements() 
-            # TODO residual = 
+            residual = self.get_residual_function(predicted_measurements, self.observed_data)  # compute the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
             gradient = self.adjoint_solver.get_gradient(residual)  # compute the gradient of the loss function with respect to the speed field using the adjoint state method
             self.speed_field = self.speed_field - self.learning_rate * gradient  # update the speed field using gradient descent
             if np.linalg.norm(gradient) < self.tol:  # check for convergence
                 break
         return self.speed_field
 
-
+    def get_residual_function(self, predicted_measurements: dict, observed_data: dict) -> np.ndarray:
+        """
+        Computes the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
+        
+        Parameters
+        ----------
+        predicted_measurements: dict, the predicted measurements at the defined space-time points, obtained from the forward solver.
+        observed_data: dict, the observed data at the defined space-time points.
+        
+        Returns
+        -------
+        np.ndarray (p,), the residual function, where p is the number of measurement points.
+        """
+        # TODO 
+        pass 
+       
     def set_learning_rate(eta: float) -> None:
         """
         Sets the learning rate for the optimization.

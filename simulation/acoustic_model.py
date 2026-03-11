@@ -32,25 +32,25 @@ class AcousticModel(object):
         """
         self.size = int(size)
         self.L = float(L)   # sets the aribitrary length scale of the problem. 
-        self.grid = np.linspace(0.0,self.L,self.size) 
-        
+        self.grid = np.linspace(0.0, self.L, self.size, endpoint=False)
+
         # physical fields (populated by initalize)
         self.speed_field: np.ndarray = None
         self.state: np.ndarray = None
-        
+
         # spaectal range used by Chebyshev (set in initialize)
         self.lam_min: float = None
         self.lam_max: float = None
         self.dE: float = None
         vec = np.array(list(range(0,size//2))+[0]+list(range(-size//2+1,0)))
-        self.k = 2*np.pi/(max(self.grid)-min(self.grid))*vec  #[0:N/2-1, 0, -N/2+1:-1])
+        self.k = 2*np.pi/self.L*vec  #[0:N/2-1, 0, -N/2+1:-1])
         
             
         
 
         
     
-    def initialize(self,speed_field: np.ndarray,initial_state: np.ndarray) -> None:
+    def initialize(self, speed_field: np.ndarray, initial_state: np.ndarray) -> None:
         """
         Sets speed field and initial state. Precompute spectral range for propagator.
           
@@ -81,7 +81,7 @@ class AcousticModel(object):
         """Returns the field's state"""
         return self.state
     
-    def set_state(self,vec: np.ndarray) -> None:
+    def set_state(self, vec: np.ndarray) -> None:
         """Updates the field's state"""
         self.state = vec
         
@@ -104,7 +104,6 @@ class AcousticModel(object):
             raise ValueError( "Model not initialized")
         p = state[:self.size]
         v = state[self.size:]
-        
         dp_dt = v
         dv_dt = (self.speed_field**2) * self.deriv_n_gen(p,self.grid,2)
         
@@ -114,7 +113,7 @@ class AcousticModel(object):
         return (2/self.dE)*(df-self.lam_min*state)-state
     
     
-    def deriv_n(self,func: np.ndarray,x: np.ndarray,n: int) -> np.ndarray:
+    def deriv_n(self, func: np.ndarray, n: int) -> np.ndarray:
         """
         Evaluates the n'th derivative of f applying fast fourier transform.
         f must vanish at the domain boundaries: f(min(x)) = f(max(x)) = 0
@@ -122,20 +121,17 @@ class AcousticModel(object):
         Parameters
         ----------
         func: np.ndarray (N,), the function which derivative is evaluated
-        x: np.ndarray (N,), the domain of the function (not used, kept for API consistency)
         n: int, the derivative order
-        N: int, grid size
         
         Returns
         -------
-        df, np.ndarray (N,)
+        np.ndarray (N,), the n'th derivative of func.
         """
-        # Note: x parameter is kept for API consistency but self.k is used instead
-        dffft = ((1j*self.k)**n)*np.fft.fft(func) 
-        df = np.fft.ifft(dffft)
-        return df
+        df_fft = ((1j*self.k)**n)*np.fft.fft(func) 
+        return np.fft.ifft(df_fft)
+         
 
-    def deriv_n_gen(self,func: np.ndarray,x: np.ndarray,n: int) -> np.ndarray:
+    def deriv_n_gen(self,func: np.ndarray, x: np.ndarray, n: int) -> np.ndarray:
         """
         Evaluates the n'th derivative of f applying fast foureir transform.
         The function generalizes deriv_n function by substracting a linear function
@@ -152,7 +148,7 @@ class AcousticModel(object):
             
         Returns
         -------
-        df, np.ndarray (N,)
+        np.ndarray (N,)
         """
         y1 = func[0]
         y2 = func[-1]
@@ -164,9 +160,9 @@ class AcousticModel(object):
         linear_correction = slope if n == 1 else 0
         lin_func = slope*(x-x[0])+y1
         func2 = func - lin_func
-        dfn = self.deriv_n(func2,x,n)
-        df = dfn + linear_correction * np.ones(len(x))
-        return df
+        dfn = self.deriv_n(func2,n)
+        return dfn + linear_correction * np.ones(len(x))
+        
     
     def default_initial_state(self, amp: float,
                                 sig: float, 
@@ -175,23 +171,26 @@ class AcousticModel(object):
                                 ) -> tuple[np.ndarray, np.ndarray]:
         """
         Returns the default initial state for the acoustic model.
+        A Gaussian initial pressure distribution moving to the right
+        and a speed field with a Gaussian perturbation on top of a constant background.
         
         Parameters
         ----------
         amp: float, amplitude of the initial pressure
         sig: float, standard deviation of the initial pressure
         base_speed: float, base speed of the initial speed field
-        amp_speed: float, amplitude of the initial speed field
+        amp_speed: float, amplitude of the added Gaussian perturbation to the speed field
         
         Returns
         -------
         speed_field: np.ndarray (size,), speed field
         initial_state: np.ndarray (2*size,), initial state
         """
-        initial_pressure = amp*(gaussian(self.grid, 0, sig) + gaussian(self.grid, self.L, sig))
-        initial_velocity = np.zeros(self.grid.shape)
-        speed_field = base_speed*(np.ones(self.grid.shape) + amp_speed*gaussian(self.grid, self.L/2,  self.L/10))
-        initial_state = np.concatenate((initial_pressure,initial_velocity))
+        speed_field = base_speed*(np.ones(self.grid.shape) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
+        initial_pressure = amp * gaussian(self.grid, mu=0.3*self.L, sig=sig)
+        dp_dx = self.deriv_n_gen(initial_pressure, x=self.grid, n=1).real
+        initial_velocity = - speed_field * dp_dx
+        initial_state = np.concatenate((initial_pressure, initial_velocity))
         return speed_field, initial_state
     
 
