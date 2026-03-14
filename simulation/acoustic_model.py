@@ -164,13 +164,14 @@ class AcousticModel(object):
         return dfn + linear_correction * np.ones(len(x))
         
     
-    def default_initial_state(self, amp: float,
-                                sig: float, 
-                                base_speed: float,
-                                amp_speed: float
-                                ) -> tuple[np.ndarray, np.ndarray]:
+    def gaussian_initial_state(
+            self,
+            amp: float,
+            sig: float, 
+            base_speed: float,
+            amp_speed: float
+            ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Returns the default initial state for the acoustic model.
         A Gaussian initial pressure distribution moving to the right
         and a speed field with a Gaussian perturbation on top of a constant background.
         
@@ -186,7 +187,7 @@ class AcousticModel(object):
         speed_field: np.ndarray (size,), speed field
         initial_state: np.ndarray (2*size,), initial state
         """
-        speed_field = base_speed*(np.ones(self.grid.shape) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
+        speed_field = base_speed*(np.ones(self.size) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
         initial_pressure = amp * gaussian(self.grid, mu=0.3*self.L, sig=sig)
         dp_dx = self.deriv_n_gen(initial_pressure, x=self.grid, n=1).real
         initial_velocity = - speed_field * dp_dx
@@ -194,6 +195,34 @@ class AcousticModel(object):
         return speed_field, initial_state
     
 
+    def defult_initial_state(
+            self, 
+            base_speed: float,
+            amp_speed: float,
+            ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Returns the default initial state for the acoustic model.
+        Vanishing pressure and velocity fields, matching the conditions of the adjoint method.
+        A speed field with a Gaussian perturbation on top of a constant background.
+        
+        Parameters
+        ----------
+        amp: float, amplitude of the initial pressure
+        sig: float, standard deviation of the initial pressure
+        base_speed: float, base speed of the initial speed field
+        amp_speed: float, amplitude of the added Gaussian perturbation to the speed field
+        
+        Returns
+        -------
+        speed_field: np.ndarray (size,), speed field
+        initial_state: np.ndarray (2*size,), initial state
+        """
+        speed_field = base_speed*(np.ones(self.size) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
+        initial_pressure = np.zeros(self.size)
+        initial_velocity = np.zeros(self.size)
+        initial_state = np.concatenate((initial_pressure, initial_velocity))
+        return speed_field, initial_state
+    
 
 
     

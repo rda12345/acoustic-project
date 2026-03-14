@@ -30,7 +30,7 @@ class ChebyshevPropagator:
         model: object, the propagated model
         dt: float, the time interval of propagation. 
         Nmax: int, maximum number of coefficients
-        Nt: int, number of time-steps
+        Nt: int, number of time points
         total_time: float, total simulation duration
         d: np.ndarray, storring the Chebychev coefficients
         """
@@ -38,7 +38,7 @@ class ChebyshevPropagator:
         self.detector = detector
         self.dt = float(dt)
         self.Nmax = int(Nmax)
-        self.Nt = int(T0//dt)
+        self.Nt = int(T0/dt - 1)
         self.total_time = self.Nt*dt
         self.d = None
         self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
@@ -119,6 +119,7 @@ class ChebyshevPropagator:
         
     def propagate(self):
         """
+        Propagation of an homogeneous linear differential equation (without a source term).
         Evaluates exp(O*t)*vec, with t=Nt*dt, utilizing a Chebychev expansion of the dynamical propagator.
         Updates the system state.
 
@@ -181,7 +182,7 @@ class ChebyshevPropagator:
 
 
 
-    def propagate_with_sources(
+    def propagate_with_source(
             self,
             source: callable
             ) -> np.ndarray:
@@ -210,7 +211,7 @@ class ChebyshevPropagator:
         
     def integrate_source_term(
             self,
-            source: np.ndarray
+            source: callable
             ) -> np.ndarray:
         """
         Integrates the source term over time using Simpson's rule, while propagating the system state.
@@ -225,6 +226,7 @@ class ChebyshevPropagator:
         for Ntau in range(self.Nt+1):
             tau = Ntau*self.dt
             vec = source(t-tau)
+            #vec = source[:, self.Nt-Ntau-1]
             for _ in range(Ntau):     # Running over the time steps
                 vec = self.propagation_step(vec, fi) 
             if Ntau == 0 or Ntau == self.Nt:

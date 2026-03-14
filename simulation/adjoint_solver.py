@@ -4,6 +4,9 @@ Implements the adjoint state method for computing the gradient of the loss
 function with respect to the speed field in an acoustic isotropic wave
 equation inversion problem.
 """
+import numpy as np
+from simulation.acoustic_model import AcousticModel
+from simulation.chebyshev_propagator import ChebyshevPropagator
 
 
 class AdjointSolver:
@@ -15,8 +18,9 @@ class AdjointSolver:
     def __init__(self, model: AcousticModel, T0: float) -> None:
         self.model = model
         self.T0 = T0
+        self.propagator = ChebyshevPropagator(model=self.model, T0=self.T0)
 
-    def solve_adjoint_state_equation(self) -> np.ndarray:
+    def solve_adjoint_equation(self, residual: callable) -> np.ndarray:
         """
         Solves the adjoint state equation, with boundary conditions
         u^dagger(t=T) = 0, and  \pd{u^dagger(t=T)}{t} = 0, where T is the total simulation time.
@@ -25,40 +29,19 @@ class AdjointSolver:
         
         Parameters
         ----------
+        residual: callable, 
         model: AcousticModel, the acoustic model, which defines the generator of the adjoint state equation.
-        K: np.ndarray (p, 2*size), the measurement operator, which maps the state to the predicted measurements at the defined space-time points.
-        r_func: np.ndarray (p,), the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
         
+
         Return
         ------
         np.ndarray (2*size,), the adjoint state u^dagger, which is the solution of the adjoint state equation.
         """
         vec = np.zeros(2*self.size)  # initial state for the adjoint state equation
         generator = self.model.generator()  # get the generator of the adjoint state equation, it is the same as the acoustic models. 
-        source = self.adjoint_source()  # evaluate the adjoint source term
-        u_dagger = propagate_with_source(vec, generator=generator, source=source, Nt=1)  # solve the adjoint state equation to get u^dagger
+        u_dagger = propagator.propagate_with_source(vec, generator=generator, source=residual, Nt=1)  # solve the adjoint state equation to get u^dagger
         return u_dagger
 
-
-
-
-
-    def adjoint_source() -> np.ndarray:
-        """
-        Evaluates the adjoint source term, which is the right hand side of the adjoint state equation.
-        
-        Parameters
-        ----------
-        K: np.ndarray (p, 2*size), the measurement operator, which maps the state to the predicted measurements at the defined space-time points.
-        r: np.ndarray (p,), the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
-        
-        Return
-        ------
-        np.ndarray (2*size,), the adjoint source term, which is -K^* r, where K^* is the adjoint of K.
-        """
-        K = self.get_measurement_operator()  # get the measurement operator K, which maps the state to the predicted measurements at the defined space-time points.
-        r = self.get_residual_function(self.predicted_measurements, self.observed_data)  # get the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
-        return self.speed_field**2 * (-K.T @ r)  # the adjoint of K is its transpose, since K is a real matrix. If K were complex, we would need to take the conjugate transpose.
 
 
     def dH_dm(self) -> np.ndarray:
@@ -79,7 +62,7 @@ class AdjointSolver:
         p = state[:self.size]
         return -2 * (1/self.speed_field) * self.deriv_n(p, self.grid, 2)  # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
 
-    def get_gradient(self) -> np.ndarray:
+    def get_gradient(self, residual=None) -> np.ndarray:
         """
         Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
         
@@ -93,7 +76,9 @@ class AdjointSolver:
         ------
         np.ndarray (size,), the gradiant of the cost function with respect to the speed field, which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
         """
-        u_dagger = self.solve_adjoint_state_equation()  # solve the adjoint state equation to get u^dagger
+        if not residual:
+            raise ValueError('get_gradiant requires a residual functions as an input.')
+        u_dagger = self.solve_adjoint_equation(residual)  # solve the adjoint state equation to get u^dagger
         return self.dH_dm().T @ u_dagger  # since dH_dm is a vector representing the diagonal elements of a matrix, its adjoint is simply its transpose. If dH_dm were a full matrix, we would need to take its conjugate transpose.
 
 

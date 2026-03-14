@@ -19,9 +19,14 @@ class ForwardSolver:
         self.predicted_data = None
 
 
-    def run(self, speed_field, initial_state) -> dict:
+    def run(
+            self,
+            speed_field: np.ndarray,
+            initial_state: np.ndarray,
+            source: callable = None,
+            ) -> None:
         """
-        Propagates the initial state of the acoustic model using the Chebyshev propagator,
+        Propagates the initial state of the acoustic model, with a source term using the Chebyshev propagator,
         and computes the predicted measurements at the defined space-time points using the detector.
         
         Parameters
@@ -30,21 +35,26 @@ class ForwardSolver:
         initial_state: np.ndarray, The initial state of the acoustic model. It should be a 1D array of length 2*size,
                          where the first size elements correspond to the initial pressure distribution, and the next 
                          size elements correspond to the initial velocity distribution.
+        source: callable, given the time, t, and outputs and np.ndarray of size (p,) of the source term at time t.
         """
-        self.model.initialize(speed_field, initial_state)
-    
-        # initialize detector
-        self.detector = Detector(self.model)
-        
-        # initialize propagator
-        self.propagator = ChebyshevPropagator(self.model, self.detector, T0=self.T0)
-        Nt, dt = self.propagator.get_Nt(), self.propagator.get_dt()
-        
-        # setup detector 
-        self.detector.setup_default({"dt": dt, "Nt": Nt})
-        self.propagator.propagate()
-        self.predicted_data = self.detector.get_data()
-    
+        if not source:              # if source is not given define it as a zero array of the appropriate dimension
+            source = lambda t: np.zeros(2*self.model.size)
+
+        self.model.initialize(speed_field, initial_state)   # initialize acoustic model
+        self.detector = Detector(self.model)        # define detector
+        self.propagator = ChebyshevPropagator(self.model, self.detector, T0=self.T0)   # define propagator
+        Nt, dt = self.propagator.get_Nt(), self.propagator.get_dt()     
+        # check if Nt is  odd, redefine the time increment dt, to run the Simpson integrator (needs an even number of time points)
+        if Nt%2 == 1:
+            Nt += 1
+            dt = self.T0/(Nt+1)
+            self.propagator.Nt = Nt
+            self.propagator.dt = dt
+
+        self.detector.setup_default({"dt": dt, "Nt": Nt})      # setup detector
+        self.propagator.propagate_with_source(source)    # propagate the model
+        self.predicted_data = self.detector.get_data()    # extract the predicted data from the detector  
+        print(f'reached here')
     def get_predicted_data(self) -> dict:
         """
         Returns the predicted measurements at the defined space-time points.

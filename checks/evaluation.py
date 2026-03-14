@@ -36,7 +36,7 @@ if __name__ == '__main__':
     amp = 1.0
     
     # creating the speed field and initial state
-    speed_field, initial_state = model.default_initial_state(amp, sig, base_speed, amp_speed)
+    speed_field, initial_state = model.gaussian_initial_state(amp, sig, base_speed, amp_speed)
 
     # initialization of an initial gaussian pressure distribution and no source
     model.initialize(speed_field, initial_state)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     final_pressure = final_state[:size]
     final_velocity = final_state[size:]
     #Plot(model.grid, initial_pressure,  x_axis_label = 'position',y_axis_label = 'pressure',label = 'initial state')
-    Plot(model.grid, final_pressure.real, x_axis_label = 'position',y_axis_label = 'pressure',label = 'final state')
+    #Plot(model.grid, final_pressure.real, x_axis_label = 'position',y_axis_label = 'pressure',label = 'final state')
     
     ## Testing the forward solver agains the propagator
     forward_solver = ForwardSolver(model, T0=T0)

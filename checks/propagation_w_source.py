@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # Dynamical parameters
     T0 = 1.0
     Nt = 2**8
-    dt = T0/Nt
+    dt = T0/(Nt+1)
 
 
     
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     sig = model.L/20
     amp = 1.0
     model = AcousticModel(size = 2**8, L = 1.0)
-    speed_field, initial_state = model.default_initial_state(amp, sig, base_speed, amp_speed)
+    speed_field, initial_state = model.gaussian_initial_state(amp, sig, base_speed, amp_speed)
     model.initialize(speed_field, initial_state)
     propagator = ChebyshevPropagator(model=model, T0=T0)
     propagator.propagate()
@@ -141,9 +141,16 @@ if __name__ == "__main__":
     model_2 = AcousticModel(size = size, L = L)
     model_2.initialize(speed_field, initial_state)
     propagator_2 = ChebyshevPropagator(model=model_2, dt=dt, T0=T0)
-    propagator_2.propagate_with_sources(source = lambda t: np.zeros(2*size))  # Propagate with zero source term, should give the same result as propagate
-
+    propagator_2.propagate_with_source(source = lambda x: np.zeros(2*size))
     final_state_2 = model_2.get_state()
     final_pressure_2 = final_state_2[:size]
     print(f'Wave equation, error: {np.linalg.norm(final_state - final_state_2)}  ')
-  
+    
+
+
+## Test 6: Acoustic wave equation with a monochromatic source term
+
+
+
+
+
