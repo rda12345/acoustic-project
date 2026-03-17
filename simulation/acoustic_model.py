@@ -224,6 +224,25 @@ class AcousticModel(object):
         return speed_field, initial_state
     
 
+    def dH_dm(self, speed_field: np.ndarray, pressure: np.ndarray, source: np.ndarray) -> np.ndarray:
+        """ 
+        Evaluates the derivative of the Hamiltonian with respect to the speed field, which is the matrix that maps the second time derivatives of the state to the gradiant of the cost function with respect to the speed field.
+        
+        Parameters
+        ----------
+        speed_field: np.ndarray (size,), the speed field of the acoustic model
+        pressure: np.ndarray (size,), the pressure of the acoustic model, which is the first half of the state vector.
+                                            
+        
+        Return
+        ------
+        np.ndarray (size, size), the derivative of the Hamiltonian with respect to the speed field, a diagonal matrix
+                                for the present model.
+        """   
+        return np.diag(-2 * (1/speed_field) * self.model.deriv_n(pressure, self.model.grid, 2) + source) # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
+
+ 
+
 
     
 

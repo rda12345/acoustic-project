@@ -14,72 +14,44 @@ class AdjointSolver:
     An adjoint solver for the acoustic wave equation, which uses the adjoint state method to compute the gradient of the loss function with respect to the speed field. 
     The loss function is defined as the L2 norm of the difference between the observed data and the predicted measurements at the defined space-time points. 
     The predicted measurements are obtained by propagating the initial state with the Chebyshev propagator.
-    """
+     """
     def __init__(self, model: AcousticModel, T0: float) -> None:
+        """
+        Parameters
+        ----------
+        model: AcousticModel, the acoustic model, which defines the generator of the adjoint state equation.
+        T0: float, total propagation time
+        """
         self.model = model
         self.T0 = T0
         self.propagator = ChebyshevPropagator(model=self.model, T0=self.T0)
 
-    def solve_adjoint_equation(self, residual: callable) -> np.ndarray:
+    def solve_adjoint_equation(self, speed_field: np.ndarray, residual: callable) -> np.ndarray:
         """
         Solves the adjoint state equation, with boundary conditions
-        u^dagger(t=T) = 0, and  \pd{u^dagger(t=T)}{t} = 0, where T is the total simulation time.
+        u^dagger(t=T0) = 0, and  \pd{u^dagger(t=T0)}{t} = 0, where T0 is the total simulation time.
         The solution is the adjoint state u^dagger. 
+        In order to propagate backward in time from time t=T0 to t=0, we define tau = T0-t, and integrate over
+        tau. The generator of the wave equation remains the same, but the adjoint source function is modified.
 
         
         Parameters
         ----------
-        residual: callable, 
-        model: AcousticModel, the acoustic model, which defines the generator of the adjoint state equation.
+        speed_field: np.ndarray (size,), the speed field of the acoustic model
+        residual: callable, residual function, the function outputs an np.ndarray of size (2* model.size,)
         
-
         Return
         ------
-        np.ndarray (2*size,), the adjoint state u^dagger, which is the solution of the adjoint state equation.
+        np.ndarray (size,), the adjoint state u^dagger, which is the solution of the adjoint state equation.
         """
-        vec = np.zeros(2*self.size)  # initial state for the adjoint state equation
-        generator = self.model.generator()  # get the generator of the adjoint state equation, it is the same as the acoustic models. 
-        u_dagger = propagator.propagate_with_source(vec, generator=generator, source=residual, Nt=1)  # solve the adjoint state equation to get u^dagger
+        adjoint_source = lambda tau: speed_field**2 * residual(self.T0 - tau)
+        u_dagger = self.propagator.propagate_with_source(source=adjoint_source)  # solve the adjoint state equation to get u^dagger
         return u_dagger
 
 
 
-    def dH_dm(self) -> np.ndarray:
-        """ 
-        Evaluates the derivative of the Hamiltonian with respect to the speed field, which is the matrix that maps the second time derivatives of the state to the gradiant of the cost function with respect to the speed field.
-        
-        Parameters
-        ----------
-        speed_field: np.ndarray (size,), the speed field of the acoustic model
-        p: np.ndarray (size,), the pressure field of the acoustic model, which is the first half of the state vector.
-        
-        Return
-        ------
-        np.ndarray (size,), the derivative of the Hamiltonian with respect to the speed field,\
-            which is a vector representing the diagonal elements of the matrix (\pd{H}{m}).
 
-        """
-        p = state[:self.size]
-        return -2 * (1/self.speed_field) * self.deriv_n(p, self.grid, 2)  # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
 
-    def get_gradient(self, residual=None) -> np.ndarray:
-        """
-        Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
-        
-        Parameters
-        ----------
-        speed_field: np.ndarray (size,), the speed field of the acoustic model
-        p: np.ndarray (size,), the pressure field of the acoustic model, which is the first half of the state vector.
-        u_dagger: np.ndarray (2*size,), the adjoint state, which is the solution of the adjoint state equation.
-        
-        Return
-        ------
-        np.ndarray (size,), the gradiant of the cost function with respect to the speed field, which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
-        """
-        if not residual:
-            raise ValueError('get_gradiant requires a residual functions as an input.')
-        u_dagger = self.solve_adjoint_equation(residual)  # solve the adjoint state equation to get u^dagger
-        return self.dH_dm().T @ u_dagger  # since dH_dm is a vector representing the diagonal elements of a matrix, its adjoint is simply its transpose. If dH_dm were a full matrix, we would need to take its conjugate transpose.
 
 
 

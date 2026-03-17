@@ -1,11 +1,15 @@
 The file contains a TODO list for the project.
+
 1. Write the pseudo code for the step integration of the source term, decompose it to iterative operations propagating in time....
-1. Solve a time-dependent source wave equation and compare to the numerics, maybe a sin(omega * t) would be good.
-2. Solve for a guassian source, integrating the analytical solution, with the integral.
+2. Work out the pseudo-code for the integration in the gradient term. 
+For efficiency the integration can be done, while propagating the adjoint and the regular equation step by step.
+3. Solve a time-dependent source wave equation and compare to the numerics, maybe a sin(omega * t) would be good.
+4. Solve for a guassian source, integrating the analytical solution, with the integral.
 
 
 Large TODOs:
-1. Fix the propagation of the forward solver to include the detector recording
+1. Fix the propagation of the forward solver to include the detector recording, and that it stores the state at each time step.
+2. Finish get_gradient in inverse_engine (set up the integration...)
 2. Test the forward propagation, so it makes sense.
 3. Organize the solution of the adjoint equation so it is effectively backpropagating (modify the integral term arising from the source.)
 4. Organize the residual function.
@@ -20,5 +24,3 @@ Large TODOs:
 8. Write documentation and orgranize the theory.
 
 
-Small TODOs:
-- In the inverse engine, compute the residual and implement the gradient descent step.

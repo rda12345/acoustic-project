@@ -5,6 +5,7 @@ import numpy as np
 from simulation.acoustic_model import AcousticModel
 from simulation.forward_solver import ForwardSolver
 from simulation.adjoint_solver import AdjointSolver
+from utilities.utility_functions import simpson_integrator
 
 
 class InverseEngine:
@@ -46,9 +47,9 @@ class InverseEngine:
         """
         for _ in range(self.max_iters):
             self.forward_solver.run(self.speed_field, self.initial_state)  # propagate the initial state to get the predicted measurements
-            predicted_measurements = self.forward_solver.get_predicted_data() 
+            predicted_measurements = self.forward_solver.get_predicted_data()   # dict mapping (time, position) points to pressure values
             residual = self.get_residual_function(predicted_measurements, self.observed_data)  # compute the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
-            gradient = self.adjoint_solver.get_gradient(residual)  # compute the gradient of the loss function with respect to the speed field using the adjoint state method
+            gradient = self.get_gradient(self.speed_field, residual)  # compute the gradient of the loss function with respect to the speed field using the adjoint state method
             self.speed_field = self.speed_field - self.learning_rate * gradient  # update the speed field using gradient descent
             if np.linalg.norm(gradient) < self.tol:  # check for convergence
                 break
@@ -74,10 +75,48 @@ class InverseEngine:
             for k in keys_at_t:
                 position = k[1]    # the keys of observed and predicted data are tuples, of the form (time, position)
                 idx = np.where(self.model.grid == position)     # find the array element of x in the grid      
-                r[idx] = predicted_data
+                r[idx] = predicted_data[k] - observed_data[k]
                 return r
-        
+   
         return  residual
+    
+    def get_gradient(self, speed_field, residual=None) -> np.ndarray:
+        """
+        Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
+        
+        Parameters
+        ----------
+        speed_field: np.ndarray (size,), the speed field of the acoustic model
+        residual: callable,   
+        Return
+        ------
+        np.ndarray (size,), the gradiant of the cost function with respect to the speed field, which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
+        """
+        if not residual:
+            raise ValueError('get_gradiant requires a residual functions as an input.')
+        
+        # forward propagate and get the pressure field dynamics
+        self.forward_solver.run(
+            speed_field=self.speed_field,
+            source=self.source)
+        u_history = self.forward_solver.get_history()
+        Nt = u_history.shape[1]     # number of time-points
+
+        # backward propagate the adjoint equation to evaluate the adjoint state dynamics
+        self.adjoint_solver.solve_adjoint_equation(speed_field, residual)  # solve the adjoint state equation to get u^dagger
+        u_dagger_history = self.adjoint_solver.get_history()
+
+        integrand = np.zeros_like(self.m, Nt)
+        for j in range(Nt):
+            u_t = u_history[:, j]
+            dH_dm_t = self.forward_solver.evaluate_dH_dm(speed_field, u_t)  # matrix    
+            integrand[:, j] = dH_dm_t.T @  u_dagger_history[:, j]   
+
+        return simpson_integrator(integrand, Delta_t=dt)
+
+        
+
+        #INTEGRATE self.dH_dm().T @ u_dagger
        
     def set_learning_rate(eta: float) -> None:
         """

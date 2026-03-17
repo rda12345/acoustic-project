@@ -28,18 +28,21 @@ class ChebyshevPropagator:
         Parameters
         ----------
         model: object, the propagated model
-        dt: float, the time interval of propagation. 
+        dt: float, approximate time interval of propagation, may be modified to fit the Simpson's rule restrictions. 
         Nmax: int, maximum number of coefficients
-        Nt: int, number of time points
+        Nt: int, number of time steps (number of time points in Nt+1)
         total_time: float, total simulation duration
         d: np.ndarray, storring the Chebychev coefficients
         """
         self.model = model
         self.detector = detector
-        self.dt = float(dt)
         self.Nmax = int(Nmax)
-        self.Nt = int(T0/dt - 1)
-        self.total_time = self.Nt*dt
+        self.Nt = int(T0/dt)
+        self.dt = T0/self.Nt
+
+        assert self.Nt * self.dt == T0, 'total running time is not the same as T0, fix it'
+        #self.total_time = self.Nt*dt
+
         self.d = None
         self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
         # Note: CFL check requires model to be initialized (speed_field set)
