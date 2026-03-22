@@ -32,7 +32,7 @@ class AcousticModel(object):
         """
         self.size = int(size)
         self.L = float(L)   # sets the aribitrary length scale of the problem. 
-        self.grid = np.linspace(0.0, self.L, self.size, endpoint=False)
+        self.grid = np.linspace(0.0, self.L, self.size, endpoint=False)     # final point is set so it doesn't coincide with the first point
 
         # physical fields (populated by initalize)
         self.speed_field: np.ndarray = None
@@ -105,7 +105,7 @@ class AcousticModel(object):
         p = state[:self.size]
         v = state[self.size:]
         dp_dt = v
-        dv_dt = (self.speed_field**2) * self.deriv_n_gen(p,self.grid,2)
+        dv_dt = (self.speed_field**2) * self.deriv_n_gen(p, 2)
         
         df = np.concatenate([dp_dt, dv_dt])   # Efficiency can be improved if df is first allocated and then 
                                                 # inputed to the function, instead of reallocating each time
@@ -131,7 +131,7 @@ class AcousticModel(object):
         return np.fft.ifft(df_fft)
          
 
-    def deriv_n_gen(self,func: np.ndarray, x: np.ndarray, n: int) -> np.ndarray:
+    def deriv_n_gen(self,func: np.ndarray, n: int) -> np.ndarray:
         """
         Evaluates the n'th derivative of f applying fast foureir transform.
         The function generalizes deriv_n function by substracting a linear function
@@ -143,7 +143,6 @@ class AcousticModel(object):
         Parameters
         ----------        
         func: np.ndarray (N,), the function which derivative is evaluated
-        x: np.ndarray (N,), the domain of the function
         n: int, the derivative order
             
         Returns
@@ -152,16 +151,16 @@ class AcousticModel(object):
         """
         y1 = func[0]
         y2 = func[-1]
-        delta_x = x[-1]-x[0]
+        delta_x = self.grid[-1]-self.grid[0]
         if abs(delta_x) < 1e-13:
             slope = 0
         else:
             slope = (y2-y1)/delta_x
         linear_correction = slope if n == 1 else 0
-        lin_func = slope*(x-x[0])+y1
+        lin_func = slope*(self.grid-self.grid[0])+y1
         func2 = func - lin_func
-        dfn = self.deriv_n(func2,n)
-        return dfn + linear_correction * np.ones(len(x))
+        dfn = self.deriv_n(func2, n)
+        return dfn + linear_correction * np.ones_like(self.grid)
         
     
     def gaussian_initial_state(
@@ -189,7 +188,7 @@ class AcousticModel(object):
         """
         speed_field = base_speed*(np.ones(self.size) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
         initial_pressure = amp * gaussian(self.grid, mu=0.3*self.L, sig=sig)
-        dp_dx = self.deriv_n_gen(initial_pressure, x=self.grid, n=1).real
+        dp_dx = self.deriv_n_gen(initial_pressure, n=1).real
         initial_velocity = - speed_field * dp_dx
         initial_state = np.concatenate((initial_pressure, initial_velocity))
         return speed_field, initial_state
@@ -224,7 +223,7 @@ class AcousticModel(object):
         return speed_field, initial_state
     
 
-    def dH_dm(self, speed_field: np.ndarray, pressure: np.ndarray, source: np.ndarray) -> np.ndarray:
+    def dH_dm(self, speed_field: np.ndarray, pressure: np.ndarray, source_point: np.ndarray) -> np.ndarray:
         """ 
         Evaluates the derivative of the Hamiltonian with respect to the speed field, which is the matrix that maps the second time derivatives of the state to the gradiant of the cost function with respect to the speed field.
         
@@ -232,14 +231,14 @@ class AcousticModel(object):
         ----------
         speed_field: np.ndarray (size,), the speed field of the acoustic model
         pressure: np.ndarray (size,), the pressure of the acoustic model, which is the first half of the state vector.
-                                            
+        source_point: np.ndarray (siee,) the value of the source at the evaluated time step                              
         
-        Return
+        Returns
         ------
         np.ndarray (size, size), the derivative of the Hamiltonian with respect to the speed field, a diagonal matrix
                                 for the present model.
-        """   
-        return np.diag(-2 * (1/speed_field) * self.model.deriv_n(pressure, self.model.grid, 2) + source) # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
+        """  
+        return np.diag(-2 * (1/speed_field) * self.deriv_n_gen(pressure, 2) + source_point) # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
 
  
 

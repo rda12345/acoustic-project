@@ -16,13 +16,17 @@ class InverseEngine:
     """
     def __init__(self,
                  observed_data: dict,
+                 source: callable,
                  size: int,
                  L: float,
                  T0: float,
                  ) -> None:
         
             self.observed_data = observed_data
-            self.model = AcousticModel(L=L, size=size)
+            self.source = source
+            self.L = L
+            self.size = size
+            self.model = AcousticModel(L=self.L, size=self.size)
             self.forward_solver = ForwardSolver(model=self.model, T0=T0)
             self.adjoint_solver = AdjointSolver(model=self.model, T0=T0)
             base_speed = 0.01
@@ -70,13 +74,14 @@ class InverseEngine:
         """
         
         def residual(t):
-            r = np.zeros(self.model.size)
+            r = np.zeros(self.model.size, dtype=complex)
             keys_at_t = [k for k in observed_data.keys() if k[0]==t]
             for k in keys_at_t:
                 position = k[1]    # the keys of observed and predicted data are tuples, of the form (time, position)
                 idx = np.where(self.model.grid == position)     # find the array element of x in the grid      
                 r[idx] = predicted_data[k] - observed_data[k]
-                return r
+                
+            return r 
    
         return  residual
     
@@ -92,33 +97,34 @@ class InverseEngine:
         ------
         np.ndarray (size,), the gradiant of the cost function with respect to the speed field, which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
         """
-        if not residual:
+        if residual is None:
             raise ValueError('get_gradiant requires a residual functions as an input.')
         
-        # forward propagate and get the pressure field dynamics
+        # Forward propagate and get the pressure field dynamics
         self.forward_solver.run(
             speed_field=self.speed_field,
             source=self.source)
-        u_history = self.forward_solver.get_history()
+        u_history = self.forward_solver.get_history()[:self.size,:]     # pressure field at all time steps
+        
+        # Propagation details
         Nt = u_history.shape[1]     # number of time-points
+        dt = self.forward_solver.get_dt()
 
-        # backward propagate the adjoint equation to evaluate the adjoint state dynamics
+        # Backward propagate the adjoint equation to evaluate the adjoint state dynamics
         self.adjoint_solver.solve_adjoint_equation(speed_field, residual)  # solve the adjoint state equation to get u^dagger
         u_dagger_history = self.adjoint_solver.get_history()
 
-        integrand = np.zeros_like(self.m, Nt)
+        integrand = np.zeros((self.size, Nt), dtype=complex)
         for j in range(Nt):
             u_t = u_history[:, j]
-            dH_dm_t = self.forward_solver.evaluate_dH_dm(speed_field, u_t)  # matrix    
+            source_point = self.source(j*dt)
+            dH_dm_t = self.forward_solver.evaluate_dH_dm(speed_field, u_t, source_point)  # matrix    
             integrand[:, j] = dH_dm_t.T @  u_dagger_history[:, j]   
 
         return simpson_integrator(integrand, Delta_t=dt)
 
-        
-
-        #INTEGRATE self.dH_dm().T @ u_dagger
-       
-    def set_learning_rate(eta: float) -> None:
+    
+    def set_learning_rate(self, eta: float) -> None:
         """
         Sets the learning rate for the optimization.
         
@@ -129,7 +135,7 @@ class InverseEngine:
         self.eta = eta
 
     
-    def set_max_iters(max_iters: int) -> None:
+    def set_max_iters(self, max_iters: int) -> None:
         """
         Sets the maximum number of iterations for the optimization.
         
@@ -140,7 +146,7 @@ class InverseEngine:
         self.max_iters = max_iters
     
 
-    def set_tol(tol: float) -> None:
+    def set_tol(self, tol: float) -> None:
         """
         Sets the tolerance for convergence.
         

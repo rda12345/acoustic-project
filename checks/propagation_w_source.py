@@ -8,8 +8,9 @@ import numpy as np
 from utilities.chebychev_propagator_w_source import *
 from simulation.acoustic_model import AcousticModel
 from simulation.chebyshev_propagator import ChebyshevPropagator
-#from utilities.utility_functions import Plot
 import matplotlib.pyplot as plt
+from utilities.utility_functions import gaussian, simpson_integrator
+from scipy.special import erf
 
 if __name__ == "__main__":
     from scipy.linalg import expm
@@ -114,7 +115,8 @@ if __name__ == "__main__":
     
     size = 2**8
     L = 1.0  # sets the length scale of the problem
-    dt = 0.1
+    
+    dt = 0.05
     T0 = 20
 
     model = AcousticModel(size = size,L = L)
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     
 
 
-    Nt = 200
+    Nt = 400
     dt = T0/(Nt+1)
     model_2 = AcousticModel(size = size, L = L)
     model_2.initialize(speed_field, initial_state)
@@ -148,7 +150,127 @@ if __name__ == "__main__":
     
 
 
-## Test 6: Acoustic wave equation with a monochromatic source term
+    ## Test 6: Acoustic wave equation with a monochromatic source term
+    
+    size = 2**8
+    L = 1.0  # sets the length scale of the problem
+    T0 = 1.0
+    c = 0.01    # wave speed
+    speed_field = c * np.ones(size)
+    initial_state = np.zeros(2*size)
+    initial_pressure = initial_state[:size]
+
+    # Initialize model
+    model = AcousticModel(size=size, L=L)
+    model.initialize(speed_field, initial_state)
+
+    Nt = 400
+    dt = T0/(Nt+1)
+    # Defining the source term
+    A = 0.1
+
+    grid = model.grid
+    n = 1
+    k = 2*np.pi*n/L
+    omega_k = c*k
+    omega = 0.2
+    def monochromatic_source(t: float) -> np.ndarray:
+        s = A * np.sin(k*grid) * np.cos(omega*t)
+        return np.concatenate([np.zeros(size), s])
+
+    def non_resonant_analytic_result(t):
+        coeff = (A/(omega_k**2 - omega**2))
+        pressure = (coeff * (np.cos(omega*t)-np.cos(omega_k*t))) * np.sin(grid*k)
+        return pressure
+
+
+    # propagation
+    propagator = ChebyshevPropagator(model=model, dt=dt, T0=T0)
+    propagator.propagate_with_source(source=monochromatic_source)
+    final_state = model.get_state()
+    final_pressure = final_state[:size]
+
+    analytical_result = non_resonant_analytic_result(T0)
+
+    plt.figure()
+    plt.plot(grid, final_pressure.real, '.-', label="numerical")
+    plt.plot(grid, analytical_result.real, label="analytical")
+    plt.xlabel("position")
+    plt.ylabel("pressure")
+    plt.legend()
+    plt.show()
+
+    # print(f"Wave equation with a monochromatic source, error: {np.sum(np.abs(final_pressure-analytical_result))}")
+    
+
+
+    ## Test 7: Acoustic wave equation with a delta function in time source term
+    
+    size = 2**8
+    L = 1.0  # sets the length scale of the problem
+    T0 = 1.0
+    c = 0.01    # wave speed
+    speed_field = c * np.ones(size)
+    initial_state = np.zeros(2*size)
+    
+    Nt = 400
+    dt = T0/(Nt+1)
+    # Defining the source term
+    A = 0.1
+
+    
+    mu = L/4
+    sig = L/20
+    # Initialize model
+    model = AcousticModel(size = size, L = L)
+    model.initialize(speed_field, initial_state)
+    grid = model.grid
+
+    f = (2/dt)*gaussian(x=grid, mu = mu, sig=sig)   # normalized so to have the correct kick amplitude (dt/2)*f
+    
+    def delta_source(t: float) -> np.ndarray:
+        if np.isclose(t,0):
+            s = f 
+        else:
+            s = np.zeros(size)
+        return np.concatenate([np.zeros(size), s])
+
+    def delta_analytic_result(t):
+        b = (grid + c*t - mu)/(sig * np.sqrt(2))
+        a = (grid - c*t - mu)/(sig * np.sqrt(2))
+        u =  (1/(4*c))*(erf(b)-erf(a))
+        return u
+
+
+    # propagation
+    propagator = ChebyshevPropagator(model=model, dt=dt, T0=T0)
+    propagator.propagate_with_source(source=delta_source)
+    final_state = model.get_state()
+    final_pressure = final_state[:size]
+
+    analytical_result = delta_analytic_result(T0)
+    
+    # plt.figure()
+    # plt.plot(grid, final_pressure.real, '.-', label="numerical")
+    # plt.plot(grid, analytical_result.real, label="analytical")
+    # plt.xlabel("position")
+    # plt.ylabel("pressure")
+    # plt.legend()
+    # plt.show()
+
+    print(f"Wave equation with a delta source, error: {np.sum(np.abs(final_pressure-analytical_result))}")
+    
+
+   
+
+    
+
+
+
+
+
+
+
 
 
 

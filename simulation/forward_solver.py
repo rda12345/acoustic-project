@@ -17,6 +17,8 @@ class ForwardSolver:
         self.model = model
         self.T0 = T0
         self.predicted_data = None
+        self.state_history = None
+        self.dt = None
 
 
     def run(
@@ -41,24 +43,34 @@ class ForwardSolver:
         """
         if initial_state is None:
             initial_state = np.zeros(2*self.model.size)
-        if not source:              # if source is not given define it as a zero array of the appropriate dimension
-            source = lambda t: np.zeros(2*self.model.size)
-
+        if source is None:              # if source is not given define it as a zero array of the appropriate dimension
+            extended_source = lambda t: np.zeros(2*self.model.size)
+        else:
+            extended_source = lambda x: np.concatenate([np.zeros(self.model.size), source(x)])
+        
         self.model.initialize(speed_field, initial_state)   # initialize acoustic model
         self.detector = Detector(self.model)        # define detector
         self.propagator = ChebyshevPropagator(self.model, self.detector, T0=self.T0)   # define propagator
-        Nt, dt = self.propagator.get_Nt(), self.propagator.get_dt()     
-        # check if Nt is  odd, redefine the time increment dt, to run the Simpson integrator (needs an even number of time points)
-        if Nt%2 == 1:
-            Nt += 1
-            dt = self.T0/(Nt+1)
-            self.propagator.Nt = Nt
-            self.propagator.dt = dt
-
-        self.detector.setup_default({"dt": dt, "Nt": Nt})      # setup detector
-        self.propagator.propagate_with_source(source)    # propagate the model
+        Nt, self.dt = self.propagator.get_Nt(), self.propagator.get_dt()     
+        self.detector.setup_default({"dt": self.dt, "Nt": Nt})      # setup detector
+        _, self.state_history = self.propagator.propagate_with_source(extended_source)    # propagate the model
         self.predicted_data = self.detector.get_data()    # extract the predicted data from the detector  
-        print(f'reached here')
+
+    
+
+    def get_history(self) -> np.ndarray:
+        """
+        Returns the pressure field dynamics
+        """
+        assert self.state_history is not None, "Did not evaluate the state history"
+        return self.state_history[:self.model.size,:]
+    
+    
+    
+    def get_dt(self) -> float:
+        assert self.dt is not None, "Time-step not defined, first run the forward solver"
+        return self.dt
+            
 
     def get_predicted_data(self) -> dict:
         """
@@ -76,8 +88,8 @@ class ForwardSolver:
             raise ValueError("The forward solver has not been run yet. Please call the run() method first.")
         return self.model.state
     
-    def evaluate_dH_dm(self, speed_field, pressure) -> np.ndarray:
+    def evaluate_dH_dm(self, speed_field: np.ndarray, pressure: np.ndarray, source: callable) -> np.ndarray:
         """
         Returns dH/dm as a function of time.
         """
-        return self.model.dH_dm(speed_field, pressure)
+        return self.model.dH_dm(speed_field, pressure, source)

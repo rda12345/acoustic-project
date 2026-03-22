@@ -25,6 +25,8 @@ class AdjointSolver:
         self.model = model
         self.T0 = T0
         self.propagator = ChebyshevPropagator(model=self.model, T0=self.T0)
+        self.state = None   # will store the propagated adjoint state and corresponding velocity
+        self.history = None     # will store the dynamics of the adjoint state and corresponding velocity
 
     def solve_adjoint_equation(self, speed_field: np.ndarray, residual: callable) -> np.ndarray:
         """
@@ -44,9 +46,26 @@ class AdjointSolver:
         ------
         np.ndarray (size,), the adjoint state u^dagger, which is the solution of the adjoint state equation.
         """
-        adjoint_source = lambda tau: speed_field**2 * residual(self.T0 - tau)
-        u_dagger = self.propagator.propagate_with_source(source=adjoint_source)  # solve the adjoint state equation to get u^dagger
-        return u_dagger
+        initial_state = np.zeros(2*self.model.size)
+        self.model.initialize(speed_field, initial_state)   # initialize acoustic model
+        adjoint_source = lambda tau: np.concatenate([np.zeros(self.model.size), speed_field**2 * residual(self.T0 - tau)])   # setting the adjoint source so the integration is equivalent to back propagation from time T0.
+        self.state, self.history = self.propagator.propagate_with_source(source=adjoint_source)  # solve the adjoint state equation to get u^dagger
+        
+
+
+    def get_adjoint_state(self) -> np.ndarray:
+        """
+        Returns the adjoint state
+        """
+        assert self.state is not None, "First solve adjoint equation"
+        return self.state[:self.model.size]
+    
+    def get_history(self) -> np.ndarray:
+        """
+        Returns the adjoint state dynamics
+        """
+        assert self.history is not None, "First solve adjoint equation"
+        return self.history[:self.model.size,:]
 
 
 

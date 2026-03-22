@@ -1,26 +1,28 @@
 The file contains a TODO list for the project.
 
-1. Write the pseudo code for the step integration of the source term, decompose it to iterative operations propagating in time....
-2. Work out the pseudo-code for the integration in the gradient term. 
-For efficiency the integration can be done, while propagating the adjoint and the regular equation step by step.
-3. Solve a time-dependent source wave equation and compare to the numerics, maybe a sin(omega * t) would be good.
-4. Solve for a guassian source, integrating the analytical solution, with the integral.
 
 
 Large TODOs:
-1. Fix the propagation of the forward solver to include the detector recording, and that it stores the state at each time step.
-2. Finish get_gradient in inverse_engine (set up the integration...)
-2. Test the forward propagation, so it makes sense.
-3. Organize the solution of the adjoint equation so it is effectively backpropagating (modify the integral term arising from the source.)
-4. Organize the residual function.
+1. Organize the solution of the adjoint equation so it is effectively backpropagating (modify the integral term arising from the source.)
+2. Organize the residual function.
+3. Implement the adjoint solver.
+4. Test the adjoint solver against an analytical example.
+5. Do the analytics to check the result is the same.
+6. Implement the inverse engine.
+7. Test that the inverse engine converges to the right solution for a simple example.
+8. Organize the code, push to github.
+9. Write documentation and orgranize the theory.
+10. Organize all the dimensions, mapping the paper notations to the actual simulation values.
 
-1. Implement the adjoint solver.
-2. Test the adjoint solver against an analytical example.
-3. Do the analytics to check the result is the same.
-4. Implement the inverse engine.
-5. Implement an inverse_problem file that uses the inverse engine to solve a simple problem.
-6. Test that the inverse engine converges to the right solution for a simple example.
-7. Organize the code, push to github.
-8. Write documentation and orgranize the theory.
+
+--- Added ---
+
+
+Missing implementations:
+- AcousticModel: implement `dH_dm(speed_field, pressure)` method (called by forward_solver.evaluate_dH_dm but not defined)
+
+Tests needed:
+- evaluation.py: assert that ForwardSolver and ChebyshevPropagator give identical results (assert already in place, needs passing)
+- adjoint_solver: unit test against a simple scalar ODE with known adjoint solution
 
 
