@@ -1,15 +1,17 @@
 The file contains a TODO list for the project.
 
+Theoretical TODOs:
+1. Derive the trapezoidal rule in the convolution solution.
 
 
 Large TODOs:
-1. Organize the solution of the adjoint equation so it is effectively backpropagating (modify the integral term arising from the source.)
-2. Organize the residual function.
-3. Implement the adjoint solver.
-4. Test the adjoint solver against an analytical example.
-5. Do the analytics to check the result is the same.
-6. Implement the inverse engine.
-7. Test that the inverse engine converges to the right solution for a simple example.
+1. Test the forward solver agains an analytical example, of a
+    gaussian in time and space, do the integral with some built in 
+    method.
+2. Test the adjoint solver against an analytical example.
+3. Test the residual, against an analytical result
+4. Test the gradiant update angains analytics.
+7. Test that the inverse engine converges to the right solution for a simple examples.
 8. Organize the code, push to github.
 9. Write documentation and orgranize the theory.
 10. Organize all the dimensions, mapping the paper notations to the actual simulation values.

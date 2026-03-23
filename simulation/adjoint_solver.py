@@ -56,6 +56,10 @@ class AdjointSolver:
     def get_adjoint_state(self) -> np.ndarray:
         """
         Returns the adjoint state
+        
+        Returns
+        -------
+        np.ndarray (2*size,): adjoint state at time T0.
         """
         assert self.state is not None, "First solve adjoint equation"
         return self.state[:self.model.size]
@@ -63,6 +67,10 @@ class AdjointSolver:
     def get_history(self) -> np.ndarray:
         """
         Returns the adjoint state dynamics
+
+        Returns
+        -------
+        np.ndarray (2*size, Nt+1): adjoint state at the different time steps.
         """
         assert self.history is not None, "First solve adjoint equation"
         return self.history[:self.model.size,:]
