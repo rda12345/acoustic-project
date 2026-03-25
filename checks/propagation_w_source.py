@@ -9,7 +9,7 @@ from utilities.chebychev_propagator_w_source import *
 from simulation.acoustic_model import AcousticModel
 from simulation.chebyshev_propagator import ChebyshevPropagator
 import matplotlib.pyplot as plt
-from utilities.utility_functions import gaussian, simpson_integrator
+from utilities.utility_functions import gaussian
 from scipy.special import erf
 
 if __name__ == "__main__":
