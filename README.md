@@ -12,6 +12,8 @@ This project solves the **1D acoustic inverse problem** (full waveform inversion
 
 ## Architecture
 
+### Inverse Problem 
+
 An `InverseEngine` instance accepts model parameters, defining the physics of the problem, and observed measurements, obtained from a "real" experiment. The engine aims to optimize the speed field so the predicted measurements, obtained from its model, coincide with the observed measurements.
 
 The `InverseEngine` class has two main components:
@@ -24,14 +26,13 @@ The engine updates the speed field via **gradient descent** and feeds it back to
 
 The system solves the 1D acoustic wave equation expressed as two coupled first-order PDEs:
 - The `ForwardSolver` has three components, it begins by building an `AcousticModel` instance, propagates it with the `ChebyshevPropagator`, and records the measurements at specified time utilizing a `Detector` instance.
-- The system state is given by the state vector: `[pressure (size,), velocity (size,)]` → concatenated as `(2*size,)`
-- Spatial derivatives computed via FFT with a linear-correction trick (`deriv_n_gen`) to handle non-zero boundary conditions
+- The system state is given by the state vector including ca concatination of the pressure and its time-derivative, at all the grid points.
+- Spatial derivatives computed via FFT.
 - Time propagation via **Chebyshev expansion** of the operator `exp(O*dt)`, where coefficients are modified Bessel functions `besseli(n, R)` (Kosloff 1994 style). Coefficients are precomputed once per propagation run and truncated when they fall below `1e-17`.
-- **Source term**: the additional convolution integral `∫₀ᵀ exp(O(T−τ)) s(τ) dτ` is computed using the Chebyshev propagator and **Simpson's rule** with `Nt+1` quadrature points (requires `Nt` even).
+- **Source term**: the additional convolution integral `∫₀ᵀ exp(O(T−τ)) s(τ) dτ` is computed using the Chebyshev propagator and **Trapezodial rule** with `Nt+1` quadrature points (requires `Nt` even).
 
-
-### Inverse Problem 
-
+### Adjoint Problem
+COMPLETE
 
 ## Dependencies
 
