@@ -7,8 +7,7 @@ This project solves the **1D acoustic inverse problem** (full waveform inversion
 
 
 ## Running the Code
-
-#TODO
+TODO
 
 ## Architecture
 
@@ -32,7 +31,7 @@ The system solves the 1D acoustic wave equation expressed as two coupled first-o
 - **Source term**: the additional convolution integral `∫₀ᵀ exp(O(T−τ)) s(τ) dτ` is computed using the Chebyshev propagator and **Trapezodial rule** with `Nt+1` quadrature points (requires `Nt` even).
 
 ### Adjoint Problem
-COMPLETE
+TODO
 
 ## Dependencies
 
