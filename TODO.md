@@ -7,9 +7,11 @@ Theoretical TODOs:
 Large TODOs:
 1. finish all the check in engine_evaluation.py (testing predicted measurement, residual function and gradient)
 2. Test that the inverse engine converges to the right solution for a simple examples.
+3. Add a example_run, demonstrating the code.
 3. Organize the code, push to github.
 4. Write documentation (readme, comments, theory files turn to pdfs) and orgranize the theory.
-5. Organize all the dimensions, mapping the paper notations to the actual simulation values.
+5. Organize a "Theory" folder in the github with all the theory pdfs.
+6. Organize all the dimensions, mapping the paper notations to the actual simulation values.
 
 
 --- Added ---

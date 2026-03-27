@@ -27,7 +27,7 @@ class Detector(object):
     
     def setup_default(self, info: dict) -> None:
         """
-        Default detector setup, sets detectors positions and measurement times
+        Default detector setup, sets detector position and measurement times
         
         Parameters
         ----------
@@ -39,12 +39,9 @@ class Detector(object):
         """
         dt = info["dt"] 
         Nt = info["Nt"]
-        interval = max(1,Nt//10)
-        time_idxs = np.arange(0,Nt,interval)
-        self.measure_times = [dt*idx for idx in time_idxs]       # measurement times        
-        pos_idx = [self.model.size//4, self.model.size*3//4] 
-        self.indices = pos_idx
-        self.positions = [self.model.grid[i] for i in pos_idx]
+        self.measure_times = [dt*idx for idx in range(Nt)]       # measurement times        
+        self.indices = [self.model.size*3//4]                    # detector position index 
+        self.positions = [self.model.grid[i] for i in self.indices]
     
     def setup_specific(self, measure_times: list, positions: list):
         """
@@ -57,8 +54,8 @@ class Detector(object):
         """
         self.positions = positions 
         self.measure_times = measure_times
-        # Convert positions to indices
-        self.indices = [np.argmin(np.abs(self.model.grid - pos)) for pos in positions] 
+        self.indices = [np.argmin(np.abs(self.model.grid - pos)) for pos in positions]  # convert positions to indices
+
         
         
     def do_not_record(self) -> None:   

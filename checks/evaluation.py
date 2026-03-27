@@ -98,7 +98,6 @@ if __name__ == '__main__':
     
     # speed field with a Gaussian initial state
     c = 0.02
-    amp_speed = 0.05
     
     # evaluating forward solver
     speed_field, initial_state = c*np.ones(size), np.zeros(2*size)
@@ -113,8 +112,8 @@ if __name__ == '__main__':
     x_a = lambda t: (x - c*(T0-t)-x_0)/(np.sqrt(2)*sig)
     f = lambda t: (erf(x_b(t))-erf(x_a(t))) * A_t * np.exp(-(t-t_0)**2/(2*sig_t**2))
     Nt = 100
-    Delta_t = T0/Nt
-    f_vec = np.array([f(Delta_t*j) for j in range(Nt+1)])
+    Delta_t = T0/(Nt-1)
+    f_vec = np.array([f(Delta_t*j) for j in range(Nt)])
     f_vec = f_vec.transpose()
     analytic_result = (1/(4*c)) * simpson_integrator(f_vec, Delta_t)
 

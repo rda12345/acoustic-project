@@ -139,10 +139,10 @@ if __name__ == "__main__":
 
 
     Nt = 400
-    dt = T0/(Nt+1)
+    dt = T0/(Nt-1)
     model_2 = AcousticModel(size = size, L = L)
     model_2.initialize(speed_field, initial_state)
-    propagator_2 = ChebyshevPropagator(model=model_2, dt=dt, T0=T0)
+    propagator_2 = ChebyshevPropagator(model=model_2, Nt=Nt, T0=T0)
     propagator_2.propagate_with_source(source = lambda x: np.zeros(2*size))
     final_state_2 = model_2.get_state()
     final_pressure_2 = final_state_2[:size]
@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
 
     # propagation
-    propagator = ChebyshevPropagator(model=model, dt=dt, T0=T0)
+    propagator = ChebyshevPropagator(model=model, Nt=Nt, T0=T0)
     propagator.propagate_with_source(source=monochromatic_source)
     final_state = model.get_state()
     final_pressure = final_state[:size]

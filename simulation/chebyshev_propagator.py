@@ -19,7 +19,7 @@ class ChebyshevPropagator:
             self, 
             model: AcousticModel, 
             detector: Detector = None, 
-            dt: float = 0.1, 
+            Nt: int = 2**8, 
             Nmax: int = 1000, 
             T0: float = 10, 
             cfl_check = False
@@ -28,20 +28,17 @@ class ChebyshevPropagator:
         Parameters
         ----------
         model: object, the propagated model
-        dt: float, approximate time interval of propagation, may be modified to fit the Simpson's rule restrictions. 
         Nmax: int, maximum number of coefficients
-        Nt: int, number of time steps (number of time points in Nt+1)
+        Nt: int, number of time points
         total_time: float, total simulation duration
         d: np.ndarray, storring the Chebychev coefficients
         """
         self.model = model
         self.detector = detector
         self.Nmax = int(Nmax)
-        self.Nt = int(T0/dt)
-        self.dt = T0/self.Nt
+        self.Nt = Nt
+        self.dt = T0/(self.Nt-1)
 
-        assert np.isclose(self.Nt * self.dt, T0), 'total running time is not the same as T0, fix it'
-        #self.total_time = self.Nt*dt
 
         self.d = None
         self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
@@ -49,7 +46,7 @@ class ChebyshevPropagator:
         # it's safer to call _cfl_check() after model.initialize() if needed
         if cfl_check and model.speed_field is not None:
             self._cfl_check()
-        if T0 < dt:
+        if T0 < self.dt:
             raise('Total run time should be more than the inteval time dt')
 
         
@@ -140,7 +137,7 @@ class ChebyshevPropagator:
         """
         vec = self.model.get_state()
         self.compute_cheby_coefficients()
-        for j in range(self.Nt):     # Running over the time steps
+        for j in range(self.Nt-1):     # Running over the time steps
             vec = self.propagation_step(vec)
             if self.detector and self.detector.recording:
                 time = (j+1)*self.dt
@@ -200,7 +197,7 @@ class ChebyshevPropagator:
         Returns: 
         -------
         np.ndarray (2*size,), state at final time
-        np.ndarray (2*size, Nt), state at all time steps
+        np.ndarray (2*size, Nt), state at all time points
         """
         vec_hom = self.model.get_state()        # homogeneous solution
         vec_private = np.zeros_like(source(0)).astype(complex)        # private solution
@@ -208,32 +205,45 @@ class ChebyshevPropagator:
         assert vec_hom.shape[0] == vec_private.shape[0], f"Dimensions of homogeneous and private solutions must be the same.\
                                                             The dimensions of the homeneous and private solutions are {vec_hom.shape[0]}\
                                                             and {vec_private.shape[0]}, respectively."            
-        history = np.zeros((vec_hom.shape[0], self.Nt+1), dtype=complex)
-        vec = vec_hom + vec_private
+        history = np.zeros((vec_hom.shape[0], self.Nt), dtype=complex)
+        vec = vec_hom       # initial state
+        if self.is_recording(time=0.0):             # record the data if requested
+            self.record(time=0.0, vec=vec)
         history[:,0] = vec
         self.compute_cheby_coefficients()
-        for j in range(self.Nt):     # running over the time steps
-            #vec_hom = self.propagation_step(vec_hom)    # homogeneous solution
-            #vec_private =  self.convolution_step(vec_private, source, t = j*self.dt) 
-            #vec = vec_hom + vec_private   
-            t = j*self.dt
-            vec = self.propagation_step(vec + (self.dt/2)*source(t))
-            vec = vec + (self.dt/2) * source(t+self.dt)
+        for j in range(self.Nt-1):     # running over the time steps, in total there are Nt times
+            prev_time = j*self.dt
+            vec = self.propagation_step(vec + (self.dt/2)*source(prev_time))
+            vec = vec + (self.dt/2) * source(prev_time+self.dt)
             history[:,j+1] = vec
-            if self.detector and self.detector.recording:
-                    time = (j+1)*self.dt
-                    # check if time matches any measurement time (with tolerance for floating point)
-                    if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
-                        # storing the measements at the detector positions at a certain time
-                        for pos_idx in self.detector.indices:
-                            pos = self.model.grid[pos_idx]
-                            pressure = vec[:self.model.size]
-                            self.detector.observed_data[time,pos] = pressure[pos_idx]
+            time = (j+1)*self.dt
+            if self.is_recording(time):     
+                self.record(time, vec)
 
         self.model.set_state(vec) 
         return vec, history
 
+    def is_recording(self, time: float) -> bool:
+        """
+        Check if to record the pressure at time 
+        """
+        if self.detector and self.detector.recording:
+            # check if time matches any measurement time (with tolerance for floating point)
+            if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
+                return True
+        return False
     
+    def record(self, time: float, vec: np.ndarray) -> None: 
+        """
+        Stores the measements at the detector positions at a certain time
+        """
+        for pos_idx in self.detector.indices:
+            pos = self.model.grid[pos_idx]
+            pressure = vec[:self.model.size]
+            self.detector.observed_data[time, pos] = pressure[pos_idx]
+
+        
+          
     # def convolution_step(
     #         self,
     #         vec_private: np.ndarray,
@@ -245,30 +255,30 @@ class ChebyshevPropagator:
     #     """
     #     return self.propagation_step(vec_private) + source(t)*self.dt
         
-    def integrate(
-            self,
-            source: callable
-            ) -> np.ndarray:
-        """
-        Integrates the source term over time using Simpson's rule, while propagating the system state.
-        """
-        dimension = source(0).shape[0]
-        if self.Nt%2 != 0:
-            raise ValueError("integrate_source_term: Nt must be even for Simpson's rule.")
+    # def integrate(
+    #         self,
+    #         source: callable
+    #         ) -> np.ndarray:
+    #     """
+    #     Integrates the source term over time using Simpson's rule, while propagating the system state.
+    #     """
+    #     dimension = source(0).shape[0]
+    #     if self.Nt%2 != 0:
+    #         raise ValueError("integrate_source_term: Nt must be even for Simpson's rule.")
         
-        s = np.zeros(dimension, dtype=complex)
-        t = self.Nt*self.dt
-        for Ntau in range(self.Nt+1):
-            tau = Ntau*self.dt
-            vec = source(t-tau)
-            #vec = source[:, self.Nt-Ntau-1]
-            for _ in range(Ntau):     # Running over the time steps
-                vec = self.propagation_step(vec) 
-            if Ntau == 0 or Ntau == self.Nt:
-                s += vec
-            elif Ntau % 2 == 1:
-                s += 4*vec
-            else:
-                s += 2*vec
-        s *= self.dt/3
-        return s
+    #     s = np.zeros(dimension, dtype=complex)
+    #     t = self.Nt*self.dt
+    #     for Ntau in range(self.Nt+1):
+    #         tau = Ntau*self.dt
+    #         vec = source(t-tau)
+    #         #vec = source[:, self.Nt-Ntau-1]
+    #         for _ in range(Ntau):     # Running over the time steps
+    #             vec = self.propagation_step(vec) 
+    #         if Ntau == 0 or Ntau == self.Nt:
+    #             s += vec
+    #         elif Ntau % 2 == 1:
+    #             s += 4*vec
+    #         else:
+    #             s += 2*vec
+    #     s *= self.dt/3
+    #     return s

@@ -48,7 +48,7 @@ class AdjointSolver:
         """
         initial_state = np.zeros(2*self.model.size)
         self.model.initialize(speed_field, initial_state)   # initialize acoustic model
-        adjoint_source = lambda tau: np.concatenate([np.zeros(self.model.size), speed_field**2 * residual(self.T0 - tau)])   # setting the adjoint source so the integration is equivalent to back propagation from time T0.
+        adjoint_source = lambda tau: np.concatenate([np.zeros(self.model.size), speed_field**2 * (-1) * residual(self.T0 - tau)])   # setting the adjoint source so the integration is equivalent to back propagation from time T0.
         self.state, self.history = self.propagator.propagate_with_source(source=adjoint_source)  # solve the adjoint state equation to get u^dagger
         
 
