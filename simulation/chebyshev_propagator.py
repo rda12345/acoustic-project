@@ -7,6 +7,7 @@ from .detector import Detector
 from utilities.utility_functions import besseli
 
 
+
 class ChebyshevPropagator:
     """
     Implements Chebyshev expansion of the propagator exp(O*dt).
@@ -29,7 +30,7 @@ class ChebyshevPropagator:
         ----------
         model: object, the propagated model
         Nmax: int, maximum number of coefficients
-        Nt: int, number of time points
+        Nt: int, number of time points including zero
         total_time: float, total simulation duration
         d: np.ndarray, storring the Chebychev coefficients
         """
@@ -40,14 +41,14 @@ class ChebyshevPropagator:
         self.dt = T0/(self.Nt-1)
 
 
-        self.d = None
+        self.cheby_coeff = None
         self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
         # note: CFL check requires model to be initialized (speed_field set)
         # it's safer to call _cfl_check() after model.initialize() if needed
         if cfl_check and model.speed_field is not None:
             self._cfl_check()
         if T0 < self.dt:
-            raise('Total run time should be more than the inteval time dt')
+            raise ValueError('Total run time should be more than the inteval time dt')
 
         
 
@@ -67,26 +68,25 @@ class ChebyshevPropagator:
                 propagate the system.      
         """
         lam_min = self.model.lam_min
-        lam_max = self.model.lam_max
-        dE = lam_max-lam_min
-        assert lam_min is not None and dE is not None
-        
+        lam_max = self.model.lam_max  
+        if lam_min is None or lam_max is None:
+            raise RuntimeError("Model must be initialized before computing Chebyshev coefficients") 
         R = self.model.dE*self.dt/2  # Factor to adjust the eigenvalues to be between [-1,1]
         original_Nmax = self.Nmax  # Store original to avoid modifying instance variable
-        c = np.zeros(original_Nmax,dtype = complex)
-        c[0] = besseli(0,R)           #Zero coefficient.
+        cheby_coeff = np.zeros(original_Nmax, dtype=complex)
+        cheby_coeff[0] = besseli(0, R)           #Zero coefficient.
         # generate until either Nmax or coefficients become negligible  
         n_final = original_Nmax - 1  # Default to full range
-        for n in range(1,original_Nmax):
-            c[n] = 2.0*besseli(n,R)
-            if abs(c[n])<1e-17 and n>R:
+        for n in range(1, original_Nmax):
+            cheby_coeff[n] = 2.0 * besseli(n, R)
+            if abs(cheby_coeff[n]) < 1e-17 and n>R:
                 n_final = n
                 break
         # Use only the significant coefficients
         actual_Nmax = n_final + 1
-        c = c[:actual_Nmax]
+        cheby_coeff = cheby_coeff[:actual_Nmax]
         # multiply by global exponential factor which normalizes the coefficients
-        self.d = np.exp((lam_min+lam_max)*self.dt/2.0)*c
+        self.cheby_coeff = np.exp((lam_min+lam_max) * self.dt/2.0) * cheby_coeff
         # store actual number of coefficients for use in propagation_step
         self._actual_Nmax = actual_Nmax 
 
@@ -136,6 +136,8 @@ class ChebyshevPropagator:
         state: ndarray (2*size,), field's state at final time
         """
         vec = self.model.get_state()
+        if self.is_recording(time=0.0):
+            self.record(time=0.0, vec=vec)
         self.compute_cheby_coefficients()
         for j in range(self.Nt-1):     # Running over the time steps
             vec = self.propagation_step(vec)
@@ -170,12 +172,12 @@ class ChebyshevPropagator:
         fi[:,0] = vec
         # The normalized differential operator O
         fi[:,1] = self.model.generator(vec)              
-        actual_Nmax = getattr(self, '_actual_Nmax', len(self.d))  # Use actual number of coefficients
-        cheb_sum = self.d[0]*fi[:,0]+ self.d[1]*fi[:,1]
+        actual_Nmax = getattr(self, '_actual_Nmax', len(self.cheby_coeff))  # Use actual number of coefficients
+        cheb_sum = self.cheby_coeff[0]*fi[:,0]+ self.cheby_coeff[1]*fi[:,1]
         for i in range(1,actual_Nmax-1):
             fi[:,2] = 2*self.model.generator(fi[:,1])-fi[:,0]
             fi[:,0], fi[:,1] =fi[:,1], fi[:,2]
-            cheb_sum = cheb_sum + self.d[i+1]*fi[:,2]
+            cheb_sum = cheb_sum + self.cheby_coeff[i+1]*fi[:,2]
         return cheb_sum.copy()
 
 
@@ -186,7 +188,7 @@ class ChebyshevPropagator:
             source: callable
             ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Evaluates exp(O*t)*vec, with t=Nt*dt, utilizing a Chebychev expansion of the dynamical propagator.
+        Evaluates exp(O*t)*vec, with t=(Nt-1)*dt, utilizing a Chebychev expansion of the dynamical propagator.
         Evaluates the integral of the source term using the trapezoidal rule, while propagating the system state.
         Updates the system state.
         
@@ -202,9 +204,10 @@ class ChebyshevPropagator:
         vec_hom = self.model.get_state()        # homogeneous solution
         vec_private = np.zeros_like(source(0)).astype(complex)        # private solution
         # check if the dimensions of the homogeneous and private solutions are the same
-        assert vec_hom.shape[0] == vec_private.shape[0], f"Dimensions of homogeneous and private solutions must be the same.\
+        if vec_hom.shape[0] != vec_private.shape[0]:
+            raise ValueError(f"Dimensions of homogeneous and private solutions must be the same.\
                                                             The dimensions of the homeneous and private solutions are {vec_hom.shape[0]}\
-                                                            and {vec_private.shape[0]}, respectively."            
+                                                            and {vec_private.shape[0]}, respectively.")            
         history = np.zeros((vec_hom.shape[0], self.Nt), dtype=complex)
         vec = vec_hom       # initial state
         if self.is_recording(time=0.0):             # record the data if requested
@@ -241,44 +244,3 @@ class ChebyshevPropagator:
             pos = self.model.grid[pos_idx]
             pressure = vec[:self.model.size]
             self.detector.observed_data[time, pos] = pressure[pos_idx]
-
-        
-          
-    # def convolution_step(
-    #         self,
-    #         vec_private: np.ndarray,
-    #         source: callable,
-    #         t: float,
-    #         ) -> np.ndarray:
-    #     """
-    #     Integrates private solution using the trapezoidal rule on teh single step integral
-    #     """
-    #     return self.propagation_step(vec_private) + source(t)*self.dt
-        
-    # def integrate(
-    #         self,
-    #         source: callable
-    #         ) -> np.ndarray:
-    #     """
-    #     Integrates the source term over time using Simpson's rule, while propagating the system state.
-    #     """
-    #     dimension = source(0).shape[0]
-    #     if self.Nt%2 != 0:
-    #         raise ValueError("integrate_source_term: Nt must be even for Simpson's rule.")
-        
-    #     s = np.zeros(dimension, dtype=complex)
-    #     t = self.Nt*self.dt
-    #     for Ntau in range(self.Nt+1):
-    #         tau = Ntau*self.dt
-    #         vec = source(t-tau)
-    #         #vec = source[:, self.Nt-Ntau-1]
-    #         for _ in range(Ntau):     # Running over the time steps
-    #             vec = self.propagation_step(vec) 
-    #         if Ntau == 0 or Ntau == self.Nt:
-    #             s += vec
-    #         elif Ntau % 2 == 1:
-    #             s += 4*vec
-    #         else:
-    #             s += 2*vec
-    #     s *= self.dt/3
-    #     return s

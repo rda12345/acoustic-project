@@ -19,20 +19,6 @@ def gaussian(x: np.array, mu: float, sig: float) -> np.ndarray:
     return (1/(np.sqrt(2*np.pi*sig**2))) * np.exp(-np.power(x-mu,2)/(2*sig**2))
 
 
-def gaussian_dot(x: np.ndarray, mu: float, sig: float, c: float):
-    """
-    Returns the spatial derivative of a Gaussian, scaled by c.
-    Equivalent to c * d/dx [gaussian(x, mu, sig)].
-
-    Parameters
-    ----------
-    x: np.ndarray, evaluation points
-    mu: float, mean of the Gaussian
-    sig: float, standard deviation of the Gaussian
-    c: float or np.ndarray, scaling factor (e.g. speed field)
-    """
-    return (c*(x-mu)/sig**2)*gaussian(x,mu,sig)
-
 def besseli(v, z):
     """
     Modified Bessel function of the first kind of real order.
@@ -103,7 +89,7 @@ def simpson_integrator(integrand: np.ndarray, Delta_t: float):
     """
     dimension, N = integrand.shape[0], integrand.shape[1]
     s = np.zeros(dimension, dtype=complex)
-    t = N * Delta_t
+    N * Delta_t
     n = N
     if N%2 == 0:
         s += (3*Delta_t/8) * (integrand[:, N-4] + 3*(integrand[:, N-3]+integrand[:, N-2]) + integrand[:, N-1])

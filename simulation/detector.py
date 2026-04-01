@@ -25,20 +25,15 @@ class Detector(object):
         self.observed_data = {} # dictionary mapping (time, position) -> pressure field(time, position)
         
     
-    def setup_default(self, info: dict) -> None:
+    def setup_default(self, dt: float, Nt: int) -> None:
         """
         Default detector setup, sets detector position and measurement times
         
         Parameters
         ----------
-        info: dict, containing the parameters of the problem, including:
-            dt: float, time step size
-            Nt: int, number of time steps
-        measure_times: list, measurement times
-        positions: list, positions
+        dt: float, time step size
+        Nt: int, number of time steps
         """
-        dt = info["dt"] 
-        Nt = info["Nt"]
         self.measure_times = [dt*idx for idx in range(Nt)]       # measurement times        
         self.indices = [self.model.size*3//4]                    # detector position index 
         self.positions = [self.model.grid[i] for i in self.indices]
@@ -72,8 +67,8 @@ class Detector(object):
         dict[int, int], a dictionary mapping tuples (time, position) 
                         to the pressure field at that time and position.
         """
-        if not self.observed_data or self.recording == False:
-            raise("Warning: No data recorded. Check if the detector is set up correctly and if the propagator is propagating the system.")
+        if not self.observed_data:
+            raise RuntimeError("Warning: No data recorded. Check if the detector is set up correctly and if the propagator is propagating the system.")
         return self.observed_data
     
 

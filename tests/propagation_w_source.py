@@ -1,11 +1,12 @@
 """
 Tests the solution in chebychev_propagator_w_source
 """
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
-from utilities.chebychev_propagator_w_source import *
+
 from simulation.acoustic_model import AcousticModel
 from simulation.chebyshev_propagator import ChebyshevPropagator
 import matplotlib.pyplot as plt
@@ -13,105 +14,9 @@ from utilities.utility_functions import gaussian
 from scipy.special import erf
 
 if __name__ == "__main__":
-    from scipy.linalg import expm
     print('-------------- TESTS --------------')
 
-    # Dynamical parameters
-    T0 = 1.0
-    Nt = 2**8
-    dt = T0/(Nt+1)
-
-
-    
-    ## Test 1
-    generator = lambda x: -x  # Example generator (e.g., a simple decay)
-    
-    a = 2.0
-    # Source term
-    def source(t, a = a):
-        return np.array([a])
-
-    # Generator parameters
-    lam_min = -1.0
-    lam_max = 1.0
-    Nmax = 50
-    info = (lam_min, lam_max, dt, Nmax)   
-
-    initial_state = np.array([1.0])  # Example initial state
-    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
-    analytic_result = (initial_state - a) * np.exp(-T0) + a  # Analytical solution for the example generator and source
-    print(f'Scalar function, error: {np.linalg.norm(analytic_result - result[0])}')
-
-
-    ## Test 2: Scalar function with a time-dependent source term
-    # Source term
-    b = 0.5
-    omega = 0.1
-    def source(t, b=b, omega=omega):
-        return np.array([b * np.cos(omega * t)])
-    lam_min = -2.0
-    lam_max = 2.0
-    Nmax = 50
-    info = (lam_min, lam_max, dt, Nmax)   
-
-    initial_state = np.array([1.0])  # Example initial state
-    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
-    temp = (omega * np.sin(omega * T0) + a * np.cos(omega * T0))
-    c_1 = initial_state - (a*b/(a**2 + omega**2))  
-    analytic_result = np.exp(-a * T0) * c_1 +  (b/(a**2 + omega**2))*temp # Analytical solution for the example generator and source
-    print(f'Scalar function with a time-dependent source, error: {np.linalg.norm(analytic_result - result[0])}')
-
-
-    ## Test 3: Rabi Oscillations
-    
-    # Generator parameters
-    omega = 0.1
-    epsilon = 0.3
-    sigma_x = np.array([[0, 1],[1, 0]])
-    sigma_z = np.array([[1, 0],[0, -1]])
-    H = omega * sigma_z + epsilon * sigma_x
-
-    Omega = np.sqrt(omega**2 + epsilon**2)
-    generator = lambda vec:  - 1j * H @ vec/Omega
-    lam_min, lam_max = - Omega, Omega 
-    Nmax = 50
-    info = (lam_min, lam_max, dt, Nmax)
-
-    # Vanishing source term
-    def source(t: float, a: float = 0):
-        return np.array([0, a])
-       
-    initial_state = np.array([1.0, 0.0])  # Example initial state
-    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
-    analytic_result = expm(-1j * H * T0) @ initial_state    
-
-    print(f'Vector propagation with vanishing source, error: {np.linalg.norm(analytic_result - result)}')
-    
-    ## Test 4: Vector differential equation with a constant source term
-    
-    # Generator parameters
-    lam = 0.3
-    H = lam * sigma_x
-
-    generator = lambda vec:  - 1j * H @ vec/lam
-    lam_min, lam_max = - lam, lam 
-    Nmax = 50
-    info = (lam_min, lam_max, dt, Nmax)
-
-    a = 0.0
-    def source(t: float, a: float = a):
-        return np.array([a, 0])
-       
-    initial_state = np.array([1.0, 1.0])  # Example initial state
-    result = propagate_with_source(initial_state, generator, source, info, Nt = Nt)
-    integral = (a/lam) * np.array([np.cos(lam * T0), -1j * np.sin(lam * T0)])  # Integral of the source term over time
-    analytic_result = expm(-1j * H * T0) @ initial_state + integral   
-    print(f'Vector propagation with a constant source, error: {np.linalg.norm(analytic_result - result)}')
-
-
-
-
-    ## Test 5: Acoustic wave equation with a vanishing source term
+    ## Test 1: Acoustic wave equation with a vanishing source term
     
     size = 2**8
     L = 1.0  # sets the length scale of the problem
@@ -150,7 +55,7 @@ if __name__ == "__main__":
     
 
 
-    ## Test 6: Acoustic wave equation with a monochromatic source term
+    ## Test 2: Acoustic wave equation with a monochromatic source term
     
     size = 2**8
     L = 1.0  # sets the length scale of the problem
@@ -165,7 +70,7 @@ if __name__ == "__main__":
     model.initialize(speed_field, initial_state)
 
     Nt = 400
-    dt = T0/(Nt+1)
+    dt = T0/(Nt-1)
     # Defining the source term
     A = 0.1
 
@@ -204,7 +109,7 @@ if __name__ == "__main__":
     
 
 
-    ## Test 7: Acoustic wave equation with a delta function in time source term
+    ## Test 3: Acoustic wave equation with a delta function in time source term
     
     size = 2**8
     L = 1.0  # sets the length scale of the problem
@@ -214,7 +119,7 @@ if __name__ == "__main__":
     initial_state = np.zeros(2*size)
     
     Nt = 400
-    dt = T0/(Nt+1)
+    dt = T0/(Nt-1)
     # Defining the source term
     A = 0.1
 
@@ -243,7 +148,7 @@ if __name__ == "__main__":
 
 
     # propagation
-    propagator = ChebyshevPropagator(model=model, dt=dt, T0=T0)
+    propagator = ChebyshevPropagator(model=model, Nt=Nt, T0=T0)
     propagator.propagate_with_source(source=delta_source)
     final_state = model.get_state()
     final_pressure = final_state[:size]

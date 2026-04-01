@@ -13,7 +13,7 @@ class AcousticModel(object):
     An acoustic model, contains a grid, speed field and state, and applies the 
     dynamical generator to evolve the state.
     """
-    def __init__(self,size: int, L: float = 1.0) -> None:
+    def __init__(self, size: int, L: float = 1.0) -> None:
         """
         Initialization of the acoustic model
         
@@ -24,7 +24,7 @@ class AcousticModel(object):
         grid: array, the space grid of the proplem in the range [0,L]
                     with a total of size equally distributed points
         speed_field: np.ndarray (size,), the sound speed at every grid point
-        state: np.ndarray (2*size,), system state (pressure, velocity)
+        state: np.ndarray (2*size,), system state (pressure, pressure dot)
         lam_min: float, minimum eigenvalue
         lam_max: float, maximum eigenvalue
         dE: float, spectral range
@@ -38,12 +38,12 @@ class AcousticModel(object):
         self.speed_field: np.ndarray = None
         self.state: np.ndarray = None
 
-        # spaectal range used by Chebyshev (set in initialize)
+        # spatial range used by Chebyshev (set in initialize)
         self.lam_min: float = None
         self.lam_max: float = None
         self.dE: float = None
         vec = np.array(list(range(0,size//2))+[0]+list(range(-size//2+1,0)))
-        self.k = 2*np.pi/self.L*vec  #[0:N/2-1, 0, -N/2+1:-1])
+        self.k = 2 * np.pi/self.L * vec  #[0:N/2-1, 0, -N/2+1:-1])
         
             
         
@@ -57,7 +57,7 @@ class AcousticModel(object):
         Parameters
         ----------
         speed_field: ndarray (size,), wave speed at each grid point.
-        initial_state: ndarray (2*size,), concatenation of pressure and velocity initial fields.            
+        initial_state: ndarray (2*size,), concatenation of pressure and pressure-dot initial fields.            
         """
         if speed_field.shape != (self.size,):
             raise ValueError( "Speed field must be of shape (size,)")
@@ -66,14 +66,14 @@ class AcousticModel(object):
         
         self.speed_field = speed_field.astype(float).copy()   # the true model
         self.state =  initial_state.astype(complex).copy()
-        dx =self.L/self.size  # space interval
+        dx = self.L/self.size  # space interval
         
         # maximum resolvable wavenumber for the grid (Nyquist)
         kmax = np.pi/dx          # maximum wavenumber
         
         # gemerator eigenvalues roughly scale like c*k; add small offset
         cmax = np.max(self.speed_field)
-        self.lam_max = np.sqrt((cmax**2)*kmax**2+1.0) 
+        self.lam_max = np.sqrt((cmax**2) * kmax**2 + 1.0) 
         self.lam_min = - self.lam_max
         self.dE = self.lam_max-self.lam_min  # range of the 'energy' spectrum, with units of 1/time
         
@@ -110,7 +110,7 @@ class AcousticModel(object):
         df = np.concatenate([dp_dt, dv_dt])   # Efficiency can be improved if df is first allocated and then 
                                                 # inputed to the function, instead of reallocating each time
         # The normalized operator, in the appropriat form for the Chebychev propagator.
-        return (2/self.dE)*(df-self.lam_min*state)-state
+        return (2/self.dE) * (df-self.lam_min*state) - state
     
     
     def deriv_n(self, func: np.ndarray, n: int) -> np.ndarray:
@@ -127,7 +127,7 @@ class AcousticModel(object):
         -------
         np.ndarray (N,), the n'th derivative of func.
         """
-        df_fft = ((1j*self.k)**n)*np.fft.fft(func) 
+        df_fft = ((1j*self.k)**n) * np.fft.fft(func) 
         return np.fft.ifft(df_fft)
          
 
@@ -157,7 +157,7 @@ class AcousticModel(object):
         else:
             slope = (y2-y1)/delta_x
         linear_correction = slope if n == 1 else 0
-        lin_func = slope*(self.grid-self.grid[0])+y1
+        lin_func = slope * (self.grid-self.grid[0]) + y1
         func2 = func - lin_func
         dfn = self.deriv_n(func2, n)
         return dfn + linear_correction * np.ones_like(self.grid)
@@ -189,76 +189,52 @@ class AcousticModel(object):
         speed_field = base_speed*(np.ones(self.size) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
         initial_pressure = amp * gaussian(self.grid, mu=0.3*self.L, sig=sig)
         dp_dx = self.deriv_n_gen(initial_pressure, n=1).real
-        initial_velocity = - speed_field * dp_dx
-        initial_state = np.concatenate((initial_pressure, initial_velocity))
+        initial_pressure_dot = - speed_field * dp_dx
+        initial_state = np.concatenate((initial_pressure, initial_pressure_dot))
         return speed_field, initial_state
     
 
-    def defult_initial_state(
+    def default_initial_state(
             self, 
             base_speed: float,
             amp_speed: float,
             ) -> tuple[np.ndarray, np.ndarray]:
         """
         Returns the default initial state for the acoustic model.
-        Vanishing pressure and velocity fields, matching the conditions of the adjoint method.
+        Vanishing pressure and time-derivative of the pressure (pressure-dot) fields, matching the conditions of the adjoint method.
         A speed field with a Gaussian perturbation on top of a constant background.
         
         Parameters
         ----------
-        amp: float, amplitude of the initial pressure
-        sig: float, standard deviation of the initial pressure
         base_speed: float, base speed of the initial speed field
         amp_speed: float, amplitude of the added Gaussian perturbation to the speed field
         
         Returns
         -------
-        speed_field: np.ndarray (size,), speed field
-        initial_state: np.ndarray (2*size,), initial state
+        tuple, containing:
+            speed_field: np.ndarray (size,), speed field
+            initial_state: np.ndarray (2*size,), initial state
         """
         speed_field = base_speed*(np.ones(self.size) + amp_speed*gaussian(self.grid, mu=self.L/2, sig=self.L/10))
         initial_pressure = np.zeros(self.size)
-        initial_velocity = np.zeros(self.size)
-        initial_state = np.concatenate((initial_pressure, initial_velocity))
+        initial_pressure_dot = np.zeros(self.size)
+        initial_state = np.concatenate((initial_pressure, initial_pressure_dot))
         return speed_field, initial_state
     
 
-    def dH_dm(self, speed_field: np.ndarray, pressure: np.ndarray, source_point: np.ndarray) -> np.ndarray:
+    def dH_dc(self, pressure: np.ndarray) -> np.ndarray:
         """ 
-        Evaluates the derivative of the Hamiltonian with respect to the speed field, which is the matrix that maps the second time derivatives of the state to the gradiant of the cost function with respect to the speed field.
+        Evaluates the operation of the derivative of the Hamiltonian with respect to the speed field on the model state (only depends on the the pressure).
+        Utilized to evaluate the derivative of the cost function with respect to the speed field in the optimization loop.
         
         Parameters
         ----------
-        speed_field: np.ndarray (size,), the speed field of the acoustic model
         pressure: np.ndarray (size,), the pressure of the acoustic model, which is the first half of the state vector.
-        source_point: np.ndarray (siee,) the value of the source at the evaluated time step                              
         
         Returns
         ------
-        np.ndarray (size, size), the derivative of the Hamiltonian with respect to the speed field, a diagonal matrix
-                                for the present model.
+        np.ndarray (size,), (dH/dc) @ u; the derivative of the dynamical generator, H, with respect to the speed field,
+          operating on the model state.
         """  
-        return np.diag(-2 * (1/speed_field) * self.deriv_n_gen(pressure, 2) + source_point) # the second time derivative of the pressure field, scaled by -2/m^3, where m is the speed field.
 
- 
-
-
-    
-
-        
-    
-        
-    
-        
-   
-
-    
-    
-
-
-    
-    
-
-     
-
-
+        return  self.deriv_n_gen(pressure, 2) 

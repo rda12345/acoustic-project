@@ -15,18 +15,20 @@ class AdjointSolver:
     The loss function is defined as the L2 norm of the difference between the observed data and the predicted measurements at the defined space-time points. 
     The predicted measurements are obtained by propagating the initial state with the Chebyshev propagator.
      """
-    def __init__(self, model: AcousticModel, T0: float) -> None:
+    def __init__(self, model: AcousticModel, T0: float, Nt: int) -> None:
         """
         Parameters
         ----------
         model: AcousticModel, the acoustic model, which defines the generator of the adjoint state equation.
         T0: float, total propagation time
+        Nt: int, number of time steps
         """
         self.model = model
         self.T0 = T0
-        self.propagator = ChebyshevPropagator(model=self.model, T0=self.T0)
-        self.state = None   # will store the propagated adjoint state and corresponding velocity
-        self.history = None     # will store the dynamics of the adjoint state and corresponding velocity
+        self.Nt = Nt
+        self.propagator = ChebyshevPropagator(model=self.model, T0=self.T0, Nt=self.Nt)
+        self.state = None   # will store the propagated adjoint state and corresponding adjoint state time-derivative
+        self.history = None     # will store the dynamics of the adjoint state and corresponding adjoint state time-derivative
 
     def solve_adjoint_equation(self, speed_field: np.ndarray, residual: callable) -> np.ndarray:
         """
@@ -48,7 +50,8 @@ class AdjointSolver:
         """
         initial_state = np.zeros(2*self.model.size)
         self.model.initialize(speed_field, initial_state)   # initialize acoustic model
-        adjoint_source = lambda tau: np.concatenate([np.zeros(self.model.size), speed_field**2 * (-1) * residual(self.T0 - tau)])   # setting the adjoint source so the integration is equivalent to back propagation from time T0.
+        def adjoint_source(tau):
+            return np.concatenate([np.zeros(self.model.size), - residual(self.T0 - tau)])   # setting the adjoint source so the integration is equivalent to back propagation from time T0.
         self.state, self.history = self.propagator.propagate_with_source(source=adjoint_source)  # solve the adjoint state equation to get u^dagger
         
 
@@ -70,7 +73,7 @@ class AdjointSolver:
 
         Returns
         -------
-        np.ndarray (2*size, Nt+1): adjoint state at the different time steps.
+        np.ndarray (size, Nt): adjoint state at the different time points
         """
         assert self.history is not None, "First solve adjoint equation"
         return self.history[:self.model.size,:]
