@@ -67,7 +67,7 @@ def wave_eq(t, y):
 
 def laplacian_fft(u, x):
     '''Finite difference with periodic boundary conditions '''
-    return deriv_n_gen(u,x,2)
+    return deriv_n_gen(u,x,2).real
 
 def wave_eq_fft(t, y):
     u = y[:Nx]

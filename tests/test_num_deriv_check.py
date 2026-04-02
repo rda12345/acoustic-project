@@ -17,7 +17,7 @@ def gaussian(x,mu,sig):
 
 ## Parameters
 L = 1
-x = np.linspace(0,L,2**8)
+x = np.linspace(0,L,2**8, endpoint=False)
 
 def test_deriv_n_gen(L=L, x=x, PLOT=False):
     """
@@ -31,7 +31,7 @@ def test_deriv_n_gen(L=L, x=x, PLOT=False):
 
 
     mu = L/2
-    sig = L/10
+    sig = L/20
     y2 = gaussian(x,mu,sig)
     dy2_analyt= (-(x-mu)/(sig**2))*y2
     ddy2_analyt = (-1/(sig**2) + ((-(x-mu)/(sig**2))**2))*y2
@@ -57,9 +57,9 @@ def test_deriv_n_gen(L=L, x=x, PLOT=False):
         plt.legend()
         plt.title("Second derivative of a gaussian")
         plt.show()
-    assert np.all(np.isclose(dy, dy_analyt, atol=1e-1)), f"Difference between the numeric and anlytical result for the first derivative {np.max(np.abs(dy - dy_analyt))}"
-    assert np.all(np.isclose(dy2, dy2_analyt, atol=1e-4)), f"Difference between the numeric and anlytical result for the first derivative of the gaussian {np.max(np.abs(dy2 - dy2_analyt))}"
-    assert np.all(np.isclose(ddy2, ddy2_analyt, atol=1e-4)), f"Difference between the numeric and anlytical result for the second derivative of the gaussian {np.max(np.abs(ddy2 - ddy2_analyt))}"
+    assert np.all(np.isclose(dy, dy_analyt, atol=1e-9)), f"Difference between the numeric and anlytical result for the first derivative {np.max(np.abs(dy - dy_analyt))}"
+    assert np.all(np.isclose(dy2, dy2_analyt, atol=1e-9)), f"Difference between the numeric and anlytical result for the first derivative of the gaussian {np.max(np.abs(dy2 - dy2_analyt))}"
+    assert np.all(np.isclose(ddy2, ddy2_analyt, atol=1e-9)), f"Difference between the numeric and anlytical result for the second derivative of the gaussian {np.max(np.abs(ddy2 - ddy2_analyt))}"
 
 
 if __name__ == "__main__":

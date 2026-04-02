@@ -26,12 +26,12 @@ def deriv_n(func, x, n):
         df, np.ndarray (N,)
     """
     N = len(x)
-    max_x = max(x)
-    min_x= min(x)
+    dx = x[1] - x[0]
+    period = (x[-1] - x[0]) + dx   # correct period for endpoint=False grid
     fftx = np.fft.fft(func)
     vec = np.array(list(range(0,N//2))+[0]+list(range(-N//2+1,0)))
     pi = math.pi
-    k = 2*pi/(max_x-min_x)*vec  #[0:N/2-1, 0, -N/2+1:-1])
+    k = 2*pi/period*vec  #[0:N/2-1, 0, -N/2+1:-1])
     dffft = ((1j*k)**n)*fftx 
     df = np.fft.ifft(dffft)
     return df

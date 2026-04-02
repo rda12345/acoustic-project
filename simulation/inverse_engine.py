@@ -21,8 +21,10 @@ class InverseEngine:
                  L: float,
                  T0: float,
                  Nt: int = 2**8,
+                 base_speed: float = 0.01,
                  learning_rate: float = 1e-4,
                  max_iters: int = 100,
+                 tol: float = 1e-6
                  ) -> None:
             """
             Initializes the inverse engine with the observed data, source term, and parameters of the problem."""
@@ -33,11 +35,10 @@ class InverseEngine:
             self.size = size    # number of grid points in the acoustic model
             self.Nt = Nt    # number of time points for the forward and adjoint solvers
             self.dt = T0 / (self.Nt-1) # time step size, which is used for the forward and adjoint solvers, and the detector
-            base_speed = 0.01   # sets the defult initial speed field
             self.speed_field = base_speed * np.ones(self.size)  # the speed field to be optimized, initialized to a constant initial guess, can be modified by set_speed_field_guess method
             self.learning_rate = learning_rate  # learning rate for the optimization, can be tuned.
             self.max_iters = max_iters  # maximum number of iterations for the optimization, can be tuned.
-            self.tol = 1e-6  # tolerance for convergence, can be tuned
+            self.tol = tol  # tolerance for convergence, can be tuned
             self.initial_state = np.zeros(2*self.size)    # set to coincide with the assumptions of the adjoint equation method
 
             self.model = AcousticModel(L=self.L, size=self.size)    # acoustic model
