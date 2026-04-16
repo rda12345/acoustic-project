@@ -5,7 +5,7 @@ import numpy as np
 from .acoustic_model import AcousticModel
 from .detector import Detector
 from utilities.utility_functions import besseli
-
+import warnings
 
 
 class ChebyshevPropagator:
@@ -39,7 +39,8 @@ class ChebyshevPropagator:
         self.Nmax = int(Nmax)
         self.Nt = Nt
         self.dt = T0/(self.Nt-1)
-
+        if detector is not None:
+            self.measurement_time_indices = self.detector.get_time_indices(self.dt)  # Precompute time indices for efficient recording
 
         self.cheby_coeff = None
         self._actual_Nmax = None  # Will be set by compute_cheby_coefficients
@@ -141,15 +142,9 @@ class ChebyshevPropagator:
         self.compute_cheby_coefficients()
         for j in range(self.Nt-1):     # Running over the time steps
             vec = self.propagation_step(vec)
-            if self.detector and self.detector.recording:
-                time = (j+1)*self.dt
-                # check if time matches any measurement time (with tolerance for floating point)
-                if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
-                    # storing the measements at the detector positions at a certain time
-                    for pos_idx in self.detector.indices:
-                        pos = self.model.grid[pos_idx]
-                        pressure = vec[:self.model.size]
-                        self.detector.observed_data[time,pos] = pressure[pos_idx]
+            time = (j+1)*self.dt
+            if self.is_recording(time):
+                self.record(time, vec)
         # updating the system state
         self.model.set_state(vec) 
         return vec
@@ -232,8 +227,9 @@ class ChebyshevPropagator:
         """
         if self.detector and self.detector.recording:
             # check if time matches any measurement time (with tolerance for floating point)
-            if any(abs(time - mt) < 1e-10 for mt in self.detector.measure_times):
+            if round(time/ self.dt) in self.measurement_time_indices:
                 return True
+            warnings.warn(f"Not recording at time {time:.3e}. No matching measurement time found.")
         return False
     
     def record(self, time: float, vec: np.ndarray) -> None: 

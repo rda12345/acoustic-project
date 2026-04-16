@@ -26,6 +26,9 @@ AMP_SPEED = 0.05
 SIG = L/25  # Gaussian initial state standard deviation
 AMP = 1.0   # Gaussian initial state amplitude
 PLOT = False
+measure_times = [dt*idx for idx in range(Nt)]
+grid = np.linspace(0, L, SIZE)
+positions = [grid[(SIZE*3)//4]]  # default to measuring at the 3/4 point of the grid, can be modified by setup_specific method]
 
 def test_no_source_gaussian_initial_state(
         size:int = SIZE,
@@ -43,11 +46,8 @@ def test_no_source_gaussian_initial_state(
     model = AcousticModel(size = size,L = L)
     speed_field, initial_state = model.gaussian_initial_state(AMP, sig, base_speed, amp_speed)  # creating the speed field and initial state
     model.initialize(speed_field, initial_state)    # initialization of an initial gaussian pressure distribution and no source
-    detector = Detector(model)  # initialize detector
+    detector = Detector(model.grid, measure_times=None, positions=None)  # initialize detector
     propagator = ChebyshevPropagator(model, detector, T0=T0, Nt=Nt)  # initialize propagator
-
-    
-    detector.setup_default(dt, Nt)
     propagator.propagate()
     observed_data = detector.get_data()
     final_state = model.get_state()

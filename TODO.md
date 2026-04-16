@@ -6,15 +6,24 @@ Theoretical TODOs:
 
 
 Large TODOs:
-1. Increase the number of detectors and test that the inverse engine converges to the right solution for a simple examples.
-2. Test a example_run, demonstrating the code.
-3. Finish the code review, and make sure all the comments are fixed.
-4. Organize the code.
-5. Get a code review from claude, two comments left, one is that the detector is created on every run of forward solver:
-Every call to `run()` discards the previous detector and propagator. This means you cannot configure the detector externally (e.g., set custom positions) before calling `run()` — it will be overwritten. It also means the Chebyshev coefficients are recomputed from scratch every time even if nothing changed.
-and the other
-The "default" position is buried inside a method with no documentation explaining *why* 3/4 of the domain. This makes it hard to change or understand. Either make the position a parameter, or add a comment explaining it is an arbitrary default.
-6. Write documentation (readme, comments, theory files turn to pdfs) and orgranize the theory.
-7. Organize a "Theory" folder in the github with all the theory pdfs.
-8. Add complexity analysis to the README.md file, note that performing a real dft rfft/irfft is twice faster compared to the general complex dft fft/ifft, which exploits the hermitian symmetry of the Fourier coefficients (for the present I chose not to utilize this symmetry.)
-9. Organize all the dimensions, mapping the paper notations to the actual simulation values.
+
+2. Write documentation (readme, comments, theory files turn to pdfs) and orgranize the theory.
+
+
+Documentation TODOs (pre-publication):
+
+Inaccuracies to fix:
+- AcousticModel.__init__ docstring says grid is [0, L] — should say [0, L) (endpoint excluded)
+- Detector.__init__ references a setup_specific method that doesn't exist — remove or replace
+- InverseEngine.get_gradient() has typo "operatoration"
+- dH_dc vs dH_dm naming is inconsistent between code and docstrings — pick one and apply consistently
+
+Missing inline documentation:
+- propagation_step: add explanation of the three-term Chebyshev recurrence and the fi variable
+- Source callable convention (zeros in first half, physical source in second half) should be documented inline in ForwardSolver.run() and ChebyshevPropagator.propagate_with_source(), not only in CLAUDE.md
+- observed_data key format (time, position) should be explained at point of use in InverseEngine
+
+README TODOs:
+- Add "Running the Code" section with concrete commands
+- Add minimal end-to-end example (generate data → run inversion → plot result)
+

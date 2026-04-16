@@ -2,6 +2,7 @@
 Inverse engine for acoustic wave equation. 
 """
 import numpy as np
+from collections import defaultdict
 from simulation.acoustic_model import AcousticModel
 from simulation.forward_solver import ForwardSolver
 from simulation.adjoint_solver import AdjointSolver
@@ -24,12 +25,16 @@ class InverseEngine:
                  base_speed: float = 0.01,
                  learning_rate: float = 1e-4,
                  max_iters: int = 100,
-                 tol: float = 1e-6
+                 tol: float = 1e-6,
+                 regularization_constant: float = 0.0,
+                 verbose: bool = False,
                  ) -> None:
             """
             Initializes the inverse engine with the observed data, source term, and parameters of the problem."""
         
             self.observed_data = observed_data  # the observed data, which is a dict mapping (time, position) points to pressure values
+            measurement_times = list(set(k[0] for k in observed_data.keys()))  # extract the unique measurement times from the observed data, which is used to define the detector
+            measurement_positions = list(set(k[1] for k in observed_data.keys()))  # extract the unique measurement positions from the observed data, which is used to define the detector
             self.source = source    # the source term, which is a callable that takes time as input and outputs the source term at that time, of shape (size,)
             self.L = L  # sets the length scale of the problem, which is used to define the grid of the acoustic model
             self.size = size    # number of grid points in the acoustic model
@@ -40,9 +45,14 @@ class InverseEngine:
             self.max_iters = max_iters  # maximum number of iterations for the optimization, can be tuned.
             self.tol = tol  # tolerance for convergence, can be tuned
             self.initial_state = np.zeros(2*self.size)    # set to coincide with the assumptions of the adjoint equation method
+            self.verbose = verbose  # whether to print the cost and gradient norm at each iteration for monitoring convergence, can be set by set_verbose method
+            self.regularization_constant = regularization_constant  #  multiplies the Tikhonov regularization term
 
+            self.cost_history = []  # list to store the cost function values at each iteration, used for monitoring convergence
+            self.gradient_norm_history = []  # list to store the gradient norms at each iteration, used for monitoring convergence
+        
             self.model = AcousticModel(L=self.L, size=self.size)    # acoustic model
-            self.forward_solver = ForwardSolver(model=self.model, T0=T0, Nt=Nt) # forward solver, used to propagate the initial state and compute the predicted measurements at each iteration
+            self.forward_solver = ForwardSolver(model=self.model, T0=T0, Nt=Nt, measurement_times=measurement_times, measurement_positions=measurement_positions) # forward solver, used to propagate the initial state and compute the predicted measurements at each iteration
             self.adjoint_solver = AdjointSolver(model=self.model, T0=T0, Nt=Nt) # adjoint, used to solve the adjoint equation and compute the adjoint state dynamics
             
     def set_speed_field_guess(self, speed_field) -> None:
@@ -67,14 +77,35 @@ class InverseEngine:
             predicted_data = self.forward_solver.get_predicted_data()   # dict mapping (time, position) points to pressure values
             residual = self.get_residual_function(predicted_data, self.observed_data)  # compute the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
             gradient = self.get_gradient(self.speed_field, u_history, residual)  # compute the gradient of the loss function with respect to the speed field using the adjoint state method
-            self.speed_field = self.speed_field - self.learning_rate * gradient  # update the speed field using gradient descent
+            self.speed_field = self.speed_field - self.learning_rate * gradient   # update the speed field using gradient descent
             
             phi = 0.5 * self.dt * sum(abs(predicted_data[k] - self.observed_data[k])**2 for k in predicted_data)
-            print(f'cost: {phi:.6e}')
-            print(f'gradient norm: {np.linalg.norm(gradient)}')
-            if np.linalg.norm(gradient) < self.tol:  # check for convergence
+            self.cost_history.append(phi)
+            gradient_norm = np.linalg.norm(gradient)
+            self.gradient_norm_history.append(gradient_norm)
+            if self.verbose:  # print the cost and gradient norm at each iteration for monitoring convergence
+                print(f'cost: {phi:.6e}')
+                print(f'gradient norm: {gradient_norm:.6e}')
+            if gradient_norm < self.tol:  # check for convergence
                 break
+            elif np.isnan(gradient_norm):
+                raise ValueError('Gradient norm is NaN, stopping optimization.')                
         return self.speed_field
+
+    def get_results(self) -> dict:
+        """
+        Returns the optimization history, which includes the cost function values and gradient norms at each iteration.
+        
+        Returns
+        -------
+        dict, a dictionary containing the optimization history, with keys 'cost_history' and 'gradient_norm_history'.
+        """
+        return {
+            'optimized_speed_field': self.speed_field,
+            'num_iters': len(self.cost_history),
+            'cost': self.cost_history,
+            'gradient_norm': self.gradient_norm_history
+        }
 
     def get_residual_function(self, predicted_data: dict, observed_data: dict) -> np.ndarray:
         """
@@ -90,15 +121,20 @@ class InverseEngine:
         callable, the residual function, which returns a np.ndarray (p,), where is the number of measurement points.
         """
         
+        # pre-group keys by time so residual(t) is O(n_positions) not O(Nt*n_positions)
+        keys_by_time = defaultdict(list)
+        for k in observed_data.keys():
+            keys_by_time[k[0]].append(k)
+
         def residual(t: float) -> np.ndarray:
             """
             Return the residual at time t
             """
             r = np.zeros(self.model.size, dtype=complex)
-            keys_at_t = [k for k in observed_data.keys() if np.isclose(k[0], t)]
+            keys_at_t = next((v for tk, v in keys_by_time.items() if np.isclose(tk, t)), [])
             for k in keys_at_t:
                 position = k[1]    # the keys of observed and predicted data are tuples, of the form (time, position)
-                idx = np.where(self.model.grid == position)     # find the array element of x in the grid      
+                idx = np.where(self.model.grid == position)     # find the array element of x in the grid
                 r[idx] = predicted_data[k] - observed_data[k]
                 
             return r 
@@ -107,17 +143,23 @@ class InverseEngine:
     
     def get_gradient(self, speed_field: np.ndarray, pressure_history: np.ndarray, residual=None) -> np.ndarray:
         """
-        Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
+        Evaluates the gradiant of the cost function with respect to the speed field, which is the product of the
+        adjoint of the derivative of the Hamiltonian with respect to the speed field and the adjoint state.
+        A renormalization term is added to the gradient, which is a Tikhonov regularization that penalizes deviations
+        of the speed field from zero. 
         
         Parameters
         ----------
         speed_field: np.ndarray (size,), the speed field of the acoustic model
         pressure_history: np.ndarray (size,), the whole pressure dynamics of the forward propagation
         residual: callable, residual function, utilized to evaluate the source of the adjoint equation
-
+        renormalization_constant: float, the constant that multiplies the Tikhonov regularization term.
+        
         Return
         ------
-        np.ndarray (size,), the gradiant of the cost function with respect to the speed field, which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger, where * is the adjoint operatoration.
+        np.ndarray (size,), the gradiant of the cost function with respect to the speed field,
+                            which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger,
+                            where * is the adjoint operatoration.
         """
         if residual is None:
             raise ValueError('get_gradiant requires a residual functions as an input.')
@@ -132,7 +174,7 @@ class InverseEngine:
             dH_dc_t = self.forward_solver.evaluate_dH_dc(pressure_t)  # evaluate (dH/dm @ state) at time t, which is a vector of size (size,)    
             integrand[:, j] =  dH_dc_t * adjoint_history[:, -(j+1)]   # adjoint_history is in reverse time: index 0 = t=T0, flip to align with forward time
 
-        return - 2 * speed_field * simpson_integrator(integrand, Delta_t=self.dt)    # d(phi)/dc — Simpson quadrature
+        return - 2 * speed_field * simpson_integrator(integrand, Delta_t=self.dt)  + 2 * self.regularization_constant * speed_field    # d(phi)/dc — Simpson quadrature
         
 
     

@@ -8,52 +8,44 @@ from .acoustic_model import AcousticModel
 class Detector(object):
 
     
-    def __init__(self, model: AcousticModel) -> None:    
+    def __init__(self, grid: np.ndarray, measurement_times: list, measurement_positions: list) -> None:    
         """
         Initialize the detector 
         
         Parameters
         ----------
-        model: AcousticModel
-        indices: list, containing the indices of the grid which will be measured
+        grid: np.ndarray, grid points of the acoustic model, used to define the positions of the detector
+        measurement_times: list, times at which to measure the acoustic field
+        measurement_positions: list, positions at which to measure the acoustic field, given in the same units as the grid. 
+                    The positions are converted to indices internally, and can
+                    be modified by setup_specific method. If not given, defaults to measuring at the 3/4 point of the grid.
         """
-        self.model = model 
-        self.positions = []
-        self.indices = []
-        self.measure_times = []
+        self.grid = grid
+        self.size = len(grid)
+        if measurement_times:
+            self.measurement_times = measurement_times
+        else:
+            self.measurement_times = [0.0]  # default to measuring at time 0, can be modified by setup_specific method
+        
+        if measurement_positions:
+            self.measurement_positions = measurement_positions
+            self.indices = [np.argmin(np.abs(self.grid - pos)) for pos in measurement_positions]  # convert positions to the closest corresponding indices
+        else:
+            self.indices = [(self.size*3)//4]     # default to measuring at the 3/4 point of the grid, can be modified by setup_specific method
+            self.measurement_positions = [self.grid[i] for i in self.indices]
+            
         self.recording = True
         self.observed_data = {} # dictionary mapping (time, position) -> pressure field(time, position)
         
-    
-    def setup_default(self, dt: float, Nt: int) -> None:
-        """
-        Default detector setup, sets detector position and measurement times
         
-        Parameters
-        ----------
-        dt: float, time step size
-        Nt: int, number of time steps
-        """
-        self.measure_times = [dt*idx for idx in range(Nt)]       # measurement times        
-        self.indices = [self.model.size*3//4]                    # detector position index 
-        self.positions = [self.model.grid[i] for i in self.indices]
-    
-    def setup_specific(self, measure_times: list, positions: list):
-        """
-        Setup specific detector positions and times
-            
-        Parameters
-        ----------
-        positions: list
-        measure_times: list
-        """
-        self.positions = positions 
-        self.measure_times = measure_times
-        self.indices = [np.argmin(np.abs(self.model.grid - pos)) for pos in positions]  # convert positions to indices
+        
+        
+        
+    def get_time_indices(self, dt: float) -> None:
+        """Build the integer-index set for O(1) time lookup in is_recording."""
+        return set(round(t / dt) for t in self.measurement_times)
 
-        
-        
-    def do_not_record(self) -> None:   
+    def do_not_record(self) -> None:
         """Signifies to the propagator to record measurements"""
         self.recording = False 
         

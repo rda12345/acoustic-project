@@ -13,13 +13,30 @@ class ForwardSolver:
     A forward solver for the acoustic wave equation, which uses the Chebyshev propagator to propagate the initial
     state and compute the predicted measurements at the defined space-time points. 
     """
-    def __init__(self, model: AcousticModel, T0: float, Nt: int) -> None:
+    def __init__(self, model: AcousticModel, T0: float, Nt: int, measurement_times: list=None, measurement_positions: list=None) -> None:
+        """
+        Initializes the forward solver with the acoustic model, time parameters, and detector configuration.
+        Parameters
+        ----------
+        model: AcousticModel, the acoustic model to be propagated
+        T0: float, total time for propagation
+        Nt: int, number of time points for the forward solver
+        measurement_times: list, times at which to measure the acoustic field, used to define the detector. If not given, defaults to measuring at all time points.
+        measurement_positions: list, positions at which to measure the acoustic field, given in the same units as the grid. 
+                    The positions are converted to indices internally, and can be modified by setup_specific method. If not given, defaults to measuring at the 3/4 point of the grid.
+        """
         self.model = model
         self.T0 = T0
         self.Nt = Nt
         self.predicted_data = None
         self.state_history = None
         self.dt = T0 / (self.Nt-1)
+        if measurement_times is None:
+            measurement_times = [self.dt*idx for idx in range(self.Nt)] 
+        if measurement_positions is None:
+            measurement_positions = [self.model.grid[(self.model.size*3)//4]]  # default to measuring at the 3/4 point of the grid, can be modified by setup_specific method
+        self.detector = Detector(self.model.grid, measurement_times=measurement_times, measurement_positions=measurement_positions)        # define detector
+        self.propagator = ChebyshevPropagator(self.model, self.detector, T0=self.T0, Nt=self.Nt)   # define propagator
 
 
     def run(
@@ -50,11 +67,8 @@ class ForwardSolver:
         else:
             def extended_source(x):
                 return np.concatenate([np.zeros(self.model.size), source(x)])
-        
+            
         self.model.initialize(speed_field, initial_state)   # initialize acoustic model
-        self.detector = Detector(self.model)        # define detector
-        self.propagator = ChebyshevPropagator(self.model, self.detector, T0=self.T0, Nt=self.Nt)   # define propagator
-        self.detector.setup_default(self.dt, self.Nt)      # setup detector
         _, self.state_history = self.propagator.propagate_with_source(extended_source)    # propagate the model
         self.predicted_data = self.detector.get_data()    # extract the predicted data from the detector  
 
@@ -73,7 +87,6 @@ class ForwardSolver:
         return self.state_history[:self.model.size,:]
     
     
-            
 
     def get_predicted_data(self) -> dict:
         """

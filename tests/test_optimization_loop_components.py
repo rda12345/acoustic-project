@@ -82,7 +82,7 @@ def test_data() -> None:
         f_vec = np.array([f(Delta_t*j) for j in range(nt+1)]).reshape(1, -1)
         return float(((1/(4*base_speed)) * simpson_integrator(f_vec, Delta_t))[0].real)
 
-    detector_positions = forward_solver.detector.positions
+    detector_positions = forward_solver.detector.measurement_positions
     detector_position = float(detector_positions[0])
 
     t_vec = np.linspace(0, T0, Nt)
@@ -103,7 +103,7 @@ def test_residual() -> None:
     residual = ie.get_residual_function(predicted_data, ie.observed_data)  # compute the residual function, which is the difference between the observed data and the predicted measurements at the defined space-time points.
     Nt = ie.forward_solver.propagator.get_Nt()
         
-    detector_positions = forward_solver.detector.positions    
+    detector_positions = forward_solver.detector.measurement_positions 
     detector_position = float(detector_positions[0])
     detector_indices = forward_solver.detector.indices
     detector_index = detector_indices[0]
