@@ -163,14 +163,16 @@ class ChebyshevPropagator:
         -------
         np.ndarray: propagated system state
         """
+        # Three-term Chebyshev recurrence: T_{n+1}(O) = 2*O*T_n(O) - T_{n-1}(O)
+        # fi[:,0] = T_{n-1}*vec, fi[:,1] = T_n*vec, fi[:,2] = T_{n+1}*vec (rolling window)
+        # exp(O*dt) ≈ sum_n c_n * T_n(O_norm), where O_norm has eigenvalues in [-1,1]
         fi = np.zeros((vec.shape[0],3),dtype = complex)
-        fi[:,0] = vec
-        # The normalized differential operator O
-        fi[:,1] = self.model.generator(vec)              
+        fi[:,0] = vec                               # T_0 * vec = vec
+        fi[:,1] = self.model.generator(vec)         # T_1 * vec = O_norm * vec
         actual_Nmax = getattr(self, '_actual_Nmax', len(self.cheby_coeff))  # Use actual number of coefficients
         cheb_sum = self.cheby_coeff[0]*fi[:,0]+ self.cheby_coeff[1]*fi[:,1]
         for i in range(1,actual_Nmax-1):
-            fi[:,2] = 2*self.model.generator(fi[:,1])-fi[:,0]
+            fi[:,2] = 2*self.model.generator(fi[:,1])-fi[:,0]  # T_{n+1}*vec = 2*O*T_n*vec - T_{n-1}*vec
             fi[:,0], fi[:,1] =fi[:,1], fi[:,2]
             cheb_sum = cheb_sum + self.cheby_coeff[i+1]*fi[:,2]
         return cheb_sum.copy()
@@ -189,9 +191,11 @@ class ChebyshevPropagator:
         
         Parameters
         ----------
-        source: callable, the source function
-            
-        Returns: 
+        source: callable, takes time t and returns np.ndarray of shape (2*size,). The physical
+                source should occupy the second half (pressure-dot/velocity component); the first
+                half (pressure component) should be zeros.
+
+        Returns:
         -------
         np.ndarray (2*size,), state at final time
         np.ndarray (2*size, Nt), state at all time points

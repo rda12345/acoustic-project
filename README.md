@@ -9,9 +9,6 @@ The solution of the forward and adjoint problems (wave propagation) employs a Ch
 The theory is described in detail in the theory folder, along with analytical limits utilized to benchmark the code. 
 
 
-## Running the Code
-TODO
-
 ## Architecture
 
 ### Inverse Problem 
@@ -34,12 +31,36 @@ The system solves the 1D acoustic wave equation expressed as two coupled first-o
 - **Source term**: the additional convolution integral `∫₀ᵀ exp(O(T−τ)) s(τ) dτ` is computed using the Chebyshev propagator and **Trapezodial rule** with `Nt+1` quadrature points.
 
 ### Adjoint Problem (backpropagation of the wave equation with a time-dependent source)
+
 The adjoint equation for the wave-equation has the same generator as the model, with a source term that depends on the difference between the observed and predicted data. The equation is backpropagated from the final time to initial time by performing a variable transformation `τ = T-t` and then forward propagating.
 
-## Comments
 
+## Comments
 - Due to scattering, and the zero base pressure, the pressure may obtain negative values, this not unphysical.
 - The source is initialized in the middle of the grid, in order to maximize the scattering. If the source away from the perturbation from the speed field the direct pulse dominates the measurements which inhibits the ability to recover the speed field. This is in a consequence of the geometry of the problem, and the fact that the direct pulse is not muted or compensated for.
+
+
+## Running the Code
+Install dependencies:
+```bash
+pip install numpy scipy matplotlib
+```
+
+Run the tests:
+```bash
+cd python_files
+pytest tests/
+```
+
+Run the example inversion:
+```bash
+cd python_files
+python simulation/example_run.py
+```
+
+## Minimal Example
+The `example_run.py` script demonstrates an end-to-end example of the code. It defines a speed field with a Gaussian perturbation, simulates the forward problem to generate synthetic measurements, and then runs the inverse engine to recover the speed field from the measurements. The results are saved at the end.
+
 
 ## Complexity Analysis
 The forward propagator has a number of components.

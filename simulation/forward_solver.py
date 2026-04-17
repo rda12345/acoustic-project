@@ -56,8 +56,10 @@ class ForwardSolver:
                          where the first size elements correspond to the initial pressure distribution, and the next 
                          size elements correspond to the initial pressure time-derivative distribution. Initialized by defult to None and set
                          later to a zero array for no input.
-        source: callable, given the time, t, and outputs and np.ndarray of size (p,) of the source term at time t.
-                        set by default to None and set later to a zero array for no input.
+        source: callable, takes time t and returns np.ndarray of shape (size,) — the physical
+                source in the pressure-dot component. Internally extended to shape (2*size,)
+                with zeros in the first half (pressure) and source values in the second half
+                (pressure-dot). Set to None for no source.
         """
         if initial_state is None:
             initial_state = np.zeros(2*self.model.size)

@@ -113,8 +113,9 @@ class InverseEngine:
         
         Parameters
         ----------
-        predicted_data: dict, the predicted measurements at the defined space-time points, obtained from the forward solver.
-        observed_data: dict, the observed measurments at the defined space-time points.
+        predicted_data: dict mapping (time, position) → float, where time is in seconds and
+                        position is the closest grid coordinate in [0, L). Obtained from ForwardSolver.get_predicted_data().
+        observed_data: dict with the same key format as predicted_data, containing the target measurements.
         
         Returns
         -------
@@ -159,7 +160,7 @@ class InverseEngine:
         ------
         np.ndarray (size,), the gradiant of the cost function with respect to the speed field,
                             which is a vector representing the diagonal elements of the matrix grad_m phi(m) = (pd{H}{m})^* u^dagger,
-                            where * is the adjoint operatoration.
+                            where * is the adjoint operator.
         """
         if residual is None:
             raise ValueError('get_gradiant requires a residual functions as an input.')

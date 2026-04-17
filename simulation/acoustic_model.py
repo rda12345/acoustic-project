@@ -21,7 +21,7 @@ class AcousticModel(object):
         ----------
         size: int, the number of points in the 1D space grid
         L: float, length of the grid
-        grid: array, the space grid of the proplem in the range [0,L]
+        grid: array, the space grid of the proplem in the range [0,L) (endpoint excluded),
                     with a total of size equally distributed points
         speed_field: np.ndarray (size,), the sound speed at every grid point
         state: np.ndarray (2*size,), system state (pressure, pressure dot)
