@@ -5,8 +5,11 @@
 
 This project solves the **1D acoustic inverse problem** (full waveform inversion). The goal is to recover an unknown wave speed field from pressure measurements at a few detector positions. It perfoms gradiant descent, to optimize over the speed field, evaluating the gradient with the adjoint method. To estimate the gradient efficiently, the method combines information from the (forward) solution of the current estimation of the speed field, together with the solution of the adjoint equation, which depends on both the observed and predicted data. 
 The solution of the forward and adjoint problems (wave propagation) employs a Chebyshev expansion of the dynamical propagator, which is spectrally accurate and efficient.
+The basic theory behind the method is described in appendix A of Ettore's thesis which appears in the theory folder.
 
-The theory is described in detail in the theory folder, along with analytical limits utilized to benchmark the code. 
+The theory is described in detail in the `theory/` folder, along with analytical limits utilized to benchmark the code.
+The code is organized into two main folders: `simulation/` contains the core classes for the forward and inverse problems, while `utilities/` contains helper functions and legacy code. The `tests/` folder includes scripts for validating the implementation against analytical results and numerical properties. Plots and associated code are stored in the `results/` folder for analysis. 
+
 
 
 ## Architecture
