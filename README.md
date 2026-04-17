@@ -67,13 +67,19 @@ The `example_run.py` script demonstrates an end-to-end example of the code. It d
 
 ## Complexity Analysis
 The forward propagator has a number of components.
-- The FFT-based spatial derivative has a complexity of O(N log N) per time step, where N is the number of spatial grid points.
-- The Chebyshev expansion requires computing the coefficients, which involves evaluating modified Bessel functions. The number of coefficients needed scale with 
-R ~ dE * dt ~ (cmax * dk) * (T0/Nt) = (cmax * dk) * (T0/Nt) = (pi/dx) * (T0/Nt) ~ (Nx/L) * (T0/Nt), where dk is the wavenumber. The number of coefficients needed is approximately proportional to R, so the complexity of computing the coefficients is N_coeff = O(R) = O((T0/L)*(N/Nt)), where N is the number of spatial grid points (size).
-- The convolution integral is computed with the trapezoidal rule, which has a complexity of O(Nt * N_coeff) = O((T0/L)*N), since the number of coefficients is proportional to R ~ (T0/L)*(N/Nt).
-- The total complexity of the forward propagator is O(Nt * N log N + (T0/L)*N) = O(Nt * N log N).
-- The adjoint propagator has the same complexity as the forward propagator, O(Nt * N log N).
-- The gradient evaluation involves integrating over time, which has a complexity of O(Nt * N).
+- The FFT-based spatial derivative has a complexity of `O(N log N)` per time step, where `N` is the number of spatial grid points.
+- The Chebyshev expansion requires computing the coefficients, which involves evaluating modified Bessel functions. The number of coefficients scales with the spectral radius `R`, where `dk = π/dx` is the maximum wavenumber:
+  ```
+  R  ~  dE · dt  ~  (c_max · dk) · (T0/Nt)  ~  (N/L) · (T0/Nt)
+  ```
+  So `N_coeff = O(R) = O( (T0 · N) / (L · Nt) )`.
+- The convolution integral is computed with the trapezoidal rule over `Nt` steps, each of cost `N_coeff`:
+  ```
+  O(Nt · N_coeff) = O((T0/L) · N)
+  ```
+- The total complexity of the forward propagator is `O(Nt · N log N + (T0/L) · N) = O(Nt · N log N)`.
+- The adjoint propagator has the same complexity as the forward propagator, `O(Nt · N log N)`.
+- The gradient evaluation involves integrating over time, which has a complexity of `O(Nt · N)`.
 
-Overall, the complexity of one iteration of the inverse problem is O(Nt * N log N) due to the forward and adjoint propagations, which dominate the cost. The gradient evaluation adds an additional O(Nt * N) term, but this is typically smaller than the propagation cost.
+Overall, the complexity of one iteration of the inverse problem is `O(Nt · N log N)` due to the forward and adjoint propagations, which dominate the cost. The gradient evaluation adds an additional `O(Nt · N)` term, but this is typically smaller than the propagation cost.
 
